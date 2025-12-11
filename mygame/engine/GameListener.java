@@ -24,7 +24,7 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
 
     int lvl1_BgStart = 28;
     int lvl2_BgStart = 32;
-
+    int lvl3_BgStart = 36;
     // --- متغيرات التحميل ---
     boolean isLoading = true;
     int loadedAssetsIndex = 0;
@@ -64,16 +64,24 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
             "Shield.png",       // 27
 
             // --- صور خلفيات المستوى الأول (Start Index: 28) ---
-            "Lvl1_Part1.png", // 32
-            "Lvl1_Part1.png", // 33
-            "Lvl1_Part1.png", // 34
-            "Lvl1_Part1.png" , // 35
+            "o1.png", // 32
+            "sea2.png", // 33
+            "o3.png",// 34
+            "sea2.png" , // 35
 
             // --- صور خلفيات المستوى الثاني (Start Index: 32) ---
             "Lvl1_Part1.png", // 32
             "Lvl1_Part1.png", // 33
             "Lvl1_Part1.png", // 34
-            "Lvl1_Part1.png"  // 35
+            "Lvl1_Part1.png",  // 35
+
+
+            "o1.png", // 36
+            "sea2.png", // 37
+            "o3.png",// 38
+            "sea2.png" , // 39
+
+            "PowerUp.png"  // 40
     };
 
     TextureReader.Texture texture[] = new TextureReader.Texture[textureNames.length];
@@ -103,7 +111,7 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
 
         try {
             // تحميل صورة الغلاف (المسار كما عندك)
-            coverTexture = TextureReader.readTexture("\\Assets\\Lvl1_Part2.png", true);
+            coverTexture = TextureReader.readTexture("\\Assets\\Front.png", true);
             gl.glBindTexture(GL.GL_TEXTURE_2D, coverTextureID);
             gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA, coverTexture.getWidth(), coverTexture.getHeight(), 0, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, coverTexture.getPixels());
             gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR);
@@ -217,7 +225,7 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
     }
 
     public void drawBackground(GL gl) {
-        // **التحديث هنا:** // التحقق من تغيير المستوى لتصفير العدادات ومنع الوميض
+        // 1. مراقبة تغيير المستوى لتصفير العدادات فوراً (يمنع الوميض عند الانتقال)
         if (manager.currentLevel != lastRenderedLevel) {
             backgroundY = 0;
             currentBgPart = 0;
@@ -227,70 +235,74 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
         gl.glEnable(GL.GL_BLEND);
         gl.glColor3f(1.0f, 1.0f, 1.0f);
 
+        // 2. تحديد مجموعة الصور بناءً على المستوى الحالي
         int startTextureIndex;
-        if (manager.currentLevel == 2) startTextureIndex = lvl2_BgStart;
-        else startTextureIndex = lvl1_BgStart;
+        int imagesPerLevel = 4; // عدد الصور لكل مستوى
 
-        int currentImgIndex = startTextureIndex + Math.min(currentBgPart, 3);
-        int nextImgIndex    = startTextureIndex + Math.min(currentBgPart + 1, 3);
+        if (manager.currentLevel == 1) {
+            startTextureIndex = lvl1_BgStart;
+        } else if (manager.currentLevel == 2) {
+            startTextureIndex = lvl2_BgStart;
+        } else {
+            // المستوى الثالث (أو ما يليه)
+            startTextureIndex = lvl3_BgStart;
+        }
 
-        float scrollSpeed = 2.0f;
+        // 3. تحديث حركة الخلفية
+        float scrollSpeed = 2.0f; // سرعة التحرك
         backgroundY -= scrollSpeed;
 
-        int height = 600;
-        // استخدم += height لتجنب فقدان الباقي لو السرعة أكبر
+        int height = 600; // ارتفاع الشاشة
+
+        // 4. منطق الدوران اللانهائي
+        // عندما تخرج الصورة من الأسفل، نعيد الإحداثيات ونزيد العداد
         if (backgroundY <= -height) {
             backgroundY += height;
-            if (currentBgPart < 3) currentBgPart++;
+            currentBgPart++;
         }
 
-        int y = Math.round(backgroundY); // تقريب بدلاً من cast مباشر
-        int overlap = 1;
+        // 5. حساب الفهارس باستخدام Modulo (%) لضمان التكرار السلس (0->1->2->3->0)
+        // هذا يمنع خطأ "اختفاء الصورة" أو "الوميض"
+        int currentImgIndex = startTextureIndex + (currentBgPart % imagesPerLevel);
+        int nextImgIndex = startTextureIndex + ((currentBgPart + 1) % imagesPerLevel);
 
-        // حماية: لو الصورة الحالية لم تُحمّل بعد، لا نحاول رسمها (نمنع الفلاش)
-        if (currentImgIndex < 0 || currentImgIndex >= texture.length) return;
-        if (texture[currentImgIndex] == null) {
-            // لو مش محمّل، ما نرسم حاجة (أو ممكن نرسم coverTexture لو حابب)
-            return;
-        }
+        // حماية من الأخطاء (Null Safety)
+        if (currentImgIndex >= textures.length || nextImgIndex >= textures.length) return;
+        if (texture[currentImgIndex] == null || texture[nextImgIndex] == null) return;
 
-        // لو الصورة التالية مش محمّلة بعد، استخدم الحالية كنسخة احتياط
-        int actualNextIndex = nextImgIndex;
-        if (nextImgIndex < 0 || nextImgIndex >= texture.length || texture[nextImgIndex] == null) {
-            actualNextIndex = currentImgIndex;
-        }
-
-        // حساب قيمة قص 1 بكسل للـ UV بناءً على ارتفاع التكستشر الفعلي
-        float cropCurrent = 1f / texture[currentImgIndex].getHeight();
-        float cropNext = 1f / texture[actualNextIndex].getHeight();
+        // 6. تجهيز الرسم
+        // نستخدم int و overlap لمنع الخطوط الفاصلة
+        int y = Math.round(backgroundY);
+        int overlap = 1; // تداخل 1 بيكسل لإخفاء اللحامات
 
         gl.glPushMatrix();
 
-        // رسم الحالية
+        // --- رسم الصورة الحالية (أسفل) ---
         gl.glBindTexture(GL.GL_TEXTURE_2D, textures[currentImgIndex]);
         gl.glBegin(GL.GL_QUADS);
-        gl.glTexCoord2f(0.0f, cropCurrent);    gl.glVertex2f(0, y);
-        gl.glTexCoord2f(1.0f, cropCurrent);    gl.glVertex2f(800, y);
-        gl.glTexCoord2f(1.0f, 1.0f - cropCurrent);    gl.glVertex2f(800, y + height);
-        gl.glTexCoord2f(0.0f, 1.0f - cropCurrent);    gl.glVertex2f(0, y + height);
+        gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2f(0, y);
+        gl.glTexCoord2f(1.0f, 0.0f); gl.glVertex2f(800, y);
+        gl.glTexCoord2f(1.0f, 1.0f); gl.glVertex2f(800, y + height);
+        gl.glTexCoord2f(0.0f, 1.0f); gl.glVertex2f(0, y + height);
         gl.glEnd();
 
-        // رسم التالية (أو نسخة من الحالية لو مش جاهزة)
+        // --- رسم الصورة التالية (أعلى) ---
+        // نرسمها متداخلة قليلاً (y + height - overlap) لتغطية أي فراغ
         int y2 = y + height - overlap;
-        gl.glBindTexture(GL.GL_TEXTURE_2D, textures[actualNextIndex]);
+
+        gl.glBindTexture(GL.GL_TEXTURE_2D, textures[nextImgIndex]);
         gl.glBegin(GL.GL_QUADS);
-        gl.glTexCoord2f(0.0f, cropNext);    gl.glVertex2f(0, y2);
-        gl.glTexCoord2f(1.0f, cropNext);    gl.glVertex2f(800, y2);
-        gl.glTexCoord2f(1.0f, 1.0f - cropNext);    gl.glVertex2f(800, y2 + height);
-        gl.glTexCoord2f(0.0f, 1.0f - cropNext);    gl.glVertex2f(0, y2 + height);
+        gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2f(0, y2);
+        gl.glTexCoord2f(1.0f, 0.0f); gl.glVertex2f(800, y2);
+        gl.glTexCoord2f(1.0f, 1.0f); gl.glVertex2f(800, y2 + height);
+        gl.glTexCoord2f(0.0f, 1.0f); gl.glVertex2f(0, y2 + height);
         gl.glEnd();
 
         gl.glPopMatrix();
 
-        gl.glDisable(GL.GL_BLEND);
-    }
-
-    @Override
+        // ترك الـ Blend مفعلاً لباقي عناصر اللعبة
+        gl.glEnable(GL.GL_BLEND);
+    }    @Override
     public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {}
 
     @Override

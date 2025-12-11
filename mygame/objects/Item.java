@@ -9,7 +9,8 @@ public class Item extends GameObject {
     private final ItemType type;
 
     public Item(float x, float y, ItemType type) {
-        super(x, y, 70, 40); // حجم العنصر
+        // عدلت الحجم ليكون مربعاً (50x50) عشان الصورة متتمطش
+        super(x, y, 70, 40);
         this.type = type;
         this.speed = 3.0f;
     }
@@ -32,19 +33,19 @@ public class Item extends GameObject {
         // اختيار الصورة بناءً على نوع العنصر
         switch (type) {
             case HEALTH:
-                // الاندكس 19 هو heart.png حسب GameListener
+                // الاندكس 19 هو heart.png
                 textureIndex = textures[19];
                 break;
 
             case GOLD_COIN:
-                // الاندكس 24 هو coin.png حسب GameListener
+                // الاندكس 24 هو coin.png
                 textureIndex = textures[24];
                 break;
 
             case RAPID_FIRE:
-                // بما أنه لا توجد صورة محددة للسرعة في القائمة حالياً
-                // سنستخدم صورة العملة مؤقتاً أو يمكنك إضافة صورة "lightning.png" لاحقاً
-                textureIndex = textures[24];
+                // --- التعديل هنا ---
+                // الاندكس 40 هو PowerUp.png (آخر صورة ضفناها في GameListener)
+                textureIndex = textures[40];
                 break;
 
             default:
@@ -52,17 +53,8 @@ public class Item extends GameObject {
                 break;
         }
 
-        // رسم العنصر باستخدام دالة الرسم الموجودة في GameObject
-        // يمكنك تغيير اللون قليلاً لتمييز الـ Rapid Fire إذا كان يستخدم نفس صورة العملة
-        if (type == ItemType.RAPID_FIRE) {
-            gl.glColor3f(0.5f, 0.5f, 1.0f); // ميل للأزرق
-        } else {
-            gl.glColor3f(1, 1, 1); // لون طبيعي
-        }
-
-        drawTexture(gl, textureIndex, x, y, width, height);
-
-        // إعادة اللون للأبيض
+        // رسم العنصر باللون الأبيض (عشان يظهر بألوان الصورة الأصلية)
         gl.glColor3f(1, 1, 1);
+        drawTexture(gl, textureIndex, x, y, width, height);
     }
 }
