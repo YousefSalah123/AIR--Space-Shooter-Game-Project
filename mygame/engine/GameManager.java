@@ -7,7 +7,15 @@ import java.util.ArrayList;
 import java.util.Random;
 
 public class GameManager {
+    // --- القوائم ---
+    public ArrayList<PowerUp> powerUps; // <--- أضف هذه القائمة الجديدة
 
+    // --- متغيرات الـ Power-ups ---
+    private boolean isRapidFireActive = false;
+    private long rapidFireStartTime = 0;
+    private final int RAPID_FIRE_DURATION = 5000; // المدة 5 ثواني
+    private int originalFireRate = 200; // السرعة العادية
+    private float dropChance = 0.50f; // نسبة السقوط 30%
     // --- 1. الكائنات (Game Objects) ---
     public Player player;
     public ArrayList<Enemy> enemies;
@@ -41,7 +49,7 @@ public class GameManager {
         enemies = new ArrayList<>();
         bullets = new ArrayList<>();
         coins = new ArrayList<>();
-
+        powerUps = new ArrayList<>(); // <--- تهيئة القائمة هنا
         // وضع اللاعب في منتصف أسفل الشاشة
         player = new Player(375, 50, 1);
     }
@@ -52,6 +60,17 @@ public class GameManager {
     public void update() {
         if (gameOver || gameWon) return;
 
+        // --- إدارة مهارة سرعة الضرب المؤقتة ---
+        if (isRapidFireActive) {
+            if (System.currentTimeMillis() - rapidFireStartTime > RAPID_FIRE_DURATION) {
+                isRapidFireActive = false;
+                fireRate = originalFireRate; // رجوع للسرعة الأصلية
+                System.out.println("Rapid Fire Ended!");
+            }
+        }
+
+
+
         // --- 1. منطق إطلاق النار التلقائي (Auto Fire) ---
         long currentTime = System.currentTimeMillis();
         // فقط نفحص هل مر الوقت الكافي (fireRate) لإطلاق رصاصة جديدة؟
@@ -59,6 +78,25 @@ public class GameManager {
             playerShoot();
             lastShotTime = currentTime;
         }
+
+        for (int i = powerUps.size() - 1; i >= 0; i--) {
+            PowerUp p = powerUps.get(i);
+            p.update();
+
+            // التحقق من التقاط اللاعب للـ PowerUp
+            if (player.getBounds().intersects(p.getBounds())) {
+                applyPowerUp(p.getType()); // تفعيل المهارة
+                powerUps.remove(i);
+            }
+            else if (p.getY() < -50) {
+                powerUps.remove(i);
+            }
+        }
+
+
+
+
+
 
         // 2. تحديث اللاعب
         player.update();
@@ -114,6 +152,8 @@ public class GameManager {
         for (Bullet b : bullets) b.render(gl);
         for (GoldCoin c : coins) c.render(gl);
 
+        for (PowerUp p : powerUps) p.render(gl); // <--- رسم الـ Power-ups
+
         if (bossActive && boss != null) {
             boss.render(gl);
         } else {
@@ -150,6 +190,14 @@ public class GameManager {
                             b.setAlive(false);
                             e.setAlive(false);
                             score += 10;
+
+                            // --- كود جديد: احتمالية سقوط PowerUp ---
+                            if (Math.random() < dropChance) {
+                                int type = Math.random() < 0.7 ? 1 : 0; // 70% سرعة، 30% حياة
+                                powerUps.add(new PowerUp(e.getX(), e.getY(), type));
+                            }
+                            // ---------------------------------------
+
                             break;
                         }
                     }
@@ -187,12 +235,29 @@ public class GameManager {
             }
         }
     }
-
+       // دالة تفعيل مهارة الـ Power-up
+       private void applyPowerUp(int type) {
+           if (type == 0) { // زيادة الصحة
+               lives++;
+               System.out.println("Extra Life! Lives: " + lives);
+           } else if (type == 1) { // سرعة الضرب
+               isRapidFireActive = true;
+               rapidFireStartTime = System.currentTimeMillis();
+               fireRate = 100; // سرعة جنونية (رصاصة كل 0.1 ثانية)
+               System.out.println("RAPID FIRE ACTIVATED!");
+           }
+       }
     private void handleBossDefeat() {
         bossActive = false;
         boss = null;
         score += 1000 * currentLevel;
+        lives++; // زيادة قلب
+        System.out.println("Boss Defeated! Extra Life Granted. Lives: " + lives);
+        // -----------------------
+
         System.out.println("LEVEL " + currentLevel + " COMPLETE!");
+
+
 
         if (currentLevel < 3) {
             currentLevel++;
