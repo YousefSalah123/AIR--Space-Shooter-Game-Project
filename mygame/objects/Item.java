@@ -10,7 +10,7 @@ public class Item extends GameObject {
 
     public Item(float x, float y, ItemType type) {
         // عدلت الحجم ليكون مربعاً (50x50) عشان الصورة متتمطش
-        super(x, y, 70, 40);
+        super(x, y, 90, 50);
         this.type = type;
         this.speed = 3.0f;
     }

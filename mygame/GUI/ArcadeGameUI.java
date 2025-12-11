@@ -1,4 +1,4 @@
-package mygame2.GUI;
+package com.mygame.GUI;
 
 import javax.swing.*;
 import java.awt.*;
@@ -49,7 +49,7 @@ public class ArcadeGameUI extends JFrame {
      */
     private void loadGameFont() {
         try {
-            InputStream fontStream = getClass().getResourceAsStream("Assets/Front.png");
+            InputStream fontStream = getClass().getResourceAsStream("/Assets/Front.png");
             // ملاحظة: هذا المسار يبدو وكأنه لصورة وليس لملف خط، إذا كان لديك ملف .ttf ضعه هنا
             if (fontStream != null) {
                 // gameFont = Font.createFont(Font.TRUETYPE_FONT, fontStream).deriveFont(22f);
@@ -70,7 +70,7 @@ public class ArcadeGameUI extends JFrame {
         ImageIcon bgIcon = null;
         try {
             // لاحظ المسار يبدأ بـ / ثم اسم المجلد
-            java.net.URL imgURL = getClass().getResource("Assets/Front.png");
+            java.net.URL imgURL = getClass().getResource("/Assets/Front.png");
             if (imgURL != null) {
                 bgIcon = new ImageIcon(imgURL);
             } else {
@@ -99,6 +99,7 @@ public class ArcadeGameUI extends JFrame {
         };
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setOpaque(false);
+
 
 
         JButton btnSingle = createGameButton("SINGLE PLAYER");

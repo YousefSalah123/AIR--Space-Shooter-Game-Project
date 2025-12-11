@@ -11,8 +11,11 @@ import java.awt.event.KeyListener;
 import java.io.IOException;
 
 public class GameListener extends AnimListener implements GLEventListener, KeyListener {
+    public GameListener(GameManager manager) {
+        this.manager = manager;
+    }
 
-    GameManager manager = new GameManager();
+    GameManager manager;
     boolean[] keys = new boolean[256];
 
     // --- متغيرات الخلفية المتحركة ---
@@ -41,11 +44,11 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
             "Hero4.png",        // 4
             "enemy1.png",       // 5
             "Bullet v6.png",    // 6
-            "Boss1.png",        // 7
-            "Boss1.1.png",      // 8
-            "Boss1.2.png",      // 9
-            "Boss1.4.png",      // 10
-            "Boss1.6.png",      // 11
+            "BossFinal1.png",        // 7
+            "BossFinal1.2.png",      // 8
+            "BossFinal1.2.png",      // 9
+            "BossFinal1.3.png",      // 10
+            "BossFinal1.4.png",      // 11
             "Boss2.png",        // 12
             "Boss2.1.png",      // 13
             "Boss2.2.png",      // 14
@@ -60,28 +63,45 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
             "enemy3.png",       // 23
             "coin.png",         // 24
             "BulletHero.png",   // 25
-            "Boss1.png",        // 26
+            "Boss.png",        // 26
             "Shield.png",       // 27
 
             // --- صور خلفيات المستوى الأول (Start Index: 28) ---
-            "o1.png", // 32
-            "sea2.png", // 33
-            "o3.png",// 34
-            "sea2.png" , // 35
+            "Space4.png", // 32
+            "Space4.png", // 33
+            "Space4.png",// 34
+            "Space4.png" , // 35
 
             // --- صور خلفيات المستوى الثاني (Start Index: 32) ---
-            "Lvl1_Part1.png", // 32
-            "Lvl1_Part1.png", // 33
-            "Lvl1_Part1.png", // 34
-            "Lvl1_Part1.png",  // 35
+
+            "B2.png", // 32
+            "B1.png", // 33
+            "B3.png",// 34
+            "B4.png" , // 35
+            "Lvl1_Part1.png", // 36
+            "Lvl1_Part1.png", // 37
+            "Lvl1_Part1.png", // 38
+            "Lvl1_Part1.png",  // 39
 
 
-            "o1.png", // 36
-            "sea2.png", // 37
-            "o3.png",// 38
-            "sea2.png" , // 39
+            "bulletup.png",  // 40
+            // --- أضف هذه الأيقونات في الآخر ---
+            "Balloon1.png",  // لنفترض أن ترتيبها أصب41
+            "Balloon1.png", // 42
+            "Balloon1.png",   // 43
+            "numeralX.png", // 44
 
-            "PowerUp.png"  // 40
+            // numbers (index : 40)
+            "numeral0.png", //45
+            "numeral1.png",//46
+            "numeral2.png",//47
+            "numeral3.png",
+            "numeral4.png",
+            "numeral5.png",
+            "numeral6.png",
+            "numeral7.png",
+            "numeral8.png",
+            "numeral9.png",//54
     };
 
     TextureReader.Texture texture[] = new TextureReader.Texture[textureNames.length];
@@ -91,8 +111,14 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
         GL gl = gld.getGL();
         GLU glu = new GLU();
 
+        // 1. أهم خطوة: تلوين الشاشة بالأسود فوراً قبل عمل أي شيء آخر
+        // عشان لو التحميل خد وقت، المستخدم يشوف شاشة سوداء مش بيضاء
         gl.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
+        // مسح الـ Buffer فوراً لتطبيق اللون الأسود
+        gl.glClear(GL.GL_COLOR_BUFFER_BIT);
+
+        // 2. إعدادات الإحداثيات
         gl.glMatrixMode(GL.GL_PROJECTION);
         gl.glLoadIdentity();
         glu.gluOrtho2D(0.0, 800.0, 0.0, 600.0);
@@ -103,27 +129,32 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
         gl.glEnable(GL.GL_BLEND);
         gl.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA);
 
+        // 3. حجز أماكن الصور
         gl.glGenTextures(textureNames.length, textures, 0);
 
         int[] tempID = new int[1];
         gl.glGenTextures(1, tempID, 0);
         coverTextureID = tempID[0];
 
+        // 4. تحميل الغلاف (العملية الأثقل) تأتي بعد تجهيز الشاشة
         try {
-            // تحميل صورة الغلاف (المسار كما عندك)
-            coverTexture = TextureReader.readTexture("\\Assets\\Front.png", true);
+            // نصيحة: تأكد أن حجم الصورة Front.png لا يتعدى 1024x1024 لسرعة التحميل
+            coverTexture = TextureReader.readTexture("Assets/Front.png", true);
+
             gl.glBindTexture(GL.GL_TEXTURE_2D, coverTextureID);
             gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA, coverTexture.getWidth(), coverTexture.getHeight(), 0, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, coverTexture.getPixels());
             gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR);
             gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR);
-            // منع bleeding من حواف التكسشر
+
+            // إعدادات منع التكرار
             gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE);
             gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE);
+
         } catch (IOException e) {
+            System.err.println("Error Loading Cover Image: " + e.getMessage());
             e.printStackTrace();
         }
     }
-
     @Override
     public void display(GLAutoDrawable drawable) {
         GL gl = drawable.getGL();
@@ -145,10 +176,51 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
             }
         } else {
             drawBackground(gl);
+            drawScore(gl);
             manager.player.handleInput(keys);
             manager.update();
             manager.render(gl, textures);
         }
+    }
+
+    public void drawScore(GL gl) {
+        float x = 20; // مسافة من اليسار
+        float y = 600 - 20 - 48; // مسافة من الأعلى
+        float size = 32; // حجم صور العملة و ×
+        float padding = 5; // مسافة بين العناصر
+
+        // 1. رسم صورة العملة
+        drawTexture(gl, textures[24], x, y, size, size);
+
+        // 2. رسم ×
+        float x2 = x + size + padding;
+        drawTexture(gl, textures[44], x2, y, size/2, size); // × أصغر قليلاً
+
+        // 3. رسم أرقام السكور باستخدام textures[40..49]
+        float x3 = x2 + size/2 + padding;
+        String scoreStr = manager.score + "";
+        for (char c : scoreStr.toCharArray()) {
+            int num = c - '0'; // تحويل الحرف إلى رقم
+            drawTexture(gl, textures[45 + num], x3, y, size/2, size);
+            x3 += size/2 + 2; // زيادة المسافة بين الأرقام
+        }
+    }
+
+
+    // دالة رسم الصور
+    protected void drawTexture(GL gl, int textureId, float x, float y, float w, float h) {
+        gl.glEnable(GL.GL_BLEND);
+        gl.glBindTexture(GL.GL_TEXTURE_2D, textureId);
+        gl.glColor3f(1, 1, 1);
+
+        gl.glBegin(GL.GL_QUADS);
+        gl.glTexCoord2f(0, 1); gl.glVertex2f(x, y + h);
+        gl.glTexCoord2f(1, 1); gl.glVertex2f(x + w, y + h);
+        gl.glTexCoord2f(1, 0); gl.glVertex2f(x + w, y);
+        gl.glTexCoord2f(0, 0); gl.glVertex2f(x, y);
+        gl.glEnd();
+
+        gl.glDisable(GL.GL_BLEND);
     }
 
     private void loadOneTexture(GL gl, int i) {
@@ -313,6 +385,9 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
         if (isLoading) return;
 
         if (e.getKeyCode() < 256) keys[e.getKeyCode()] = true;
+
+        // --- (تم حذف كود زر Enter من هنا) ---
+        // اللعبة الآن تبدأ من خلال زر Start في الـ GUI
 
         if (manager.isGameRunning) {
             if (e.getKeyCode() == KeyEvent.VK_Z && !manager.player.isSpecialAttackActive) manager.fireLaser();

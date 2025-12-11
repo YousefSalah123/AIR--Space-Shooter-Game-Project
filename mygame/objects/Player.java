@@ -8,35 +8,42 @@ public class Player extends GameObject {
 
     public final float SCREEN_WIDTH = 800;
     public final float SCREEN_HEIGHT = 600;
-    public static final int MAX_HEALTH = 100;
-    // --- متغيرات الدرع الجديدة ---
+    public static final int MAX_HEALTH = 1;
+
+    // --- Shield Variables ---
     public boolean isShieldActive = false;
     private long shieldStartTime = 0;
-    private long lastShieldUseTime = 0;
-    private final long SHIELD_DURATION = 5000; // مدة الدرع: 5 ثواني
+    public long lastShieldUseTime = 0;
+    private final long SHIELD_DURATION = 5000;
     private final long SHIELD_COOLDOWN = 10000;
 
-    // --- حالة الانتقال ---
+    // --- NEW: Ability Availability Flags (One-time use per level) ---
+    public boolean canUseShield = true;
+    public boolean canUseLaser = true;
+    public boolean canUseSuper = true;
+
+    // --- Transition State ---
     public boolean isFlyingOff = false;
 
-    // --- حالة الموت (الأنيميشن) ---
-    public boolean isDying = false; // هل اللاعب في حالة احتضار؟
-    public boolean animationFinished = false; // هل انتهى الأنيميشن؟
-    private int dieFrameCounter = 0; // عداد لتبطيء سرعة الأنيميشن
-    private int dieFrameDelay = 10;  // سرعة التبديل (كل 10 فريمات صورة)
-    private int currentTextureIndex = 1; // نبدأ بصورة البطل العادية (Hero.png)
+    // --- Death Animation State ---
+    public boolean isDying = false;
+    public boolean animationFinished = false;
+    private int dieFrameCounter = 0;
+    private int dieFrameDelay = 10;
+    private int currentTextureIndex = 1;
 
-    // --- القدرات ---
+    // --- Abilities ---
     public boolean specialAttackAvailable = true;
     public boolean isSpecialAttackActive = false;
     private long specialAttackEndTime = 0;
     public boolean specialAttackUsedOnEnemies = false;
     public int specialAmmo = 1;
+    public long lastSpecialAttackTime = 0;
 
     private int health;
     public int weaponLevel = 1;
 
-    // --- الدرع والليزر ---
+    // --- Laser ---
     public boolean isShieldAvailable = true;
     private long shieldEndTime = 0;
 
@@ -44,83 +51,130 @@ public class Player extends GameObject {
     public boolean isLaserAvailable = true;
     private long laserEndTime = 0;
     private float shieldAngle = 0;
+    public long lastLaserTime = 0;
 
     public Player(float x, float y) {
         super(x, y, 80, 80);
         this.speed = 8.0f;
         this.health = MAX_HEALTH;
     }
-    // دالة مساعدة لمعرفة هل الدرع جاهز (عشان الـ UI)
-    public boolean isShieldReady() {
-        return !isShieldActive && (System.currentTimeMillis() - lastShieldUseTime > SHIELD_COOLDOWN);
-    }
-    // Getter للمتبقي من الوقت (عشان الـ UI)
-    public float getShieldCooldownPercent() {
-        if (isShieldActive) return 1.0f; // شغال
-        if (isShieldReady()) return 1.0f; // جاهز
 
-        long timePassed = System.currentTimeMillis() - lastShieldUseTime;
-        return (float) timePassed / SHIELD_COOLDOWN;
+    // --- NEW METHOD: Reset Abilities (Called at start of levels) ---
+    public void resetAbilities() {
+        // Reset flags to true (Available again at start of level)
+        canUseShield = true;
+        canUseLaser = true;
+        canUseSuper = true;
+
+        // Reset active states
+        isShieldActive = false;
+        isLaserBeamActive = false;
+        isSpecialAttackActive = false;
+
+        // Reset Ammo
+        specialAmmo = 1;
     }
+
+    // Helper for UI (Deprecated logic but kept for compatibility)
+    public boolean isShieldReady() {
+        return canUseShield && !isShieldActive;
+    }
+
+    // Helper for UI
+    public float getShieldCooldownPercent() {
+        if (isShieldActive) return 1.0f;
+        if (isShieldReady()) return 1.0f;
+        return 0.0f;
+    }
+
     @Override
     public void update() {
-        // إذا كان اللاعب يموت، لا تقم بتحديث الحركة أو الحدود
         if (isDying) return;
 
-        // 1. منطق الانتقال للمستوى التالي (Fly Off)
+        // 1. Fly Off Logic
         if (isFlyingOff) {
             float targetX = (SCREEN_WIDTH / 2) - (width / 2);
-            x += (targetX - x) * 0.05f; // تحرك ناعم للوسط
-            y += 7.0f; // صعود للأعلى
+            x += (targetX - x) * 0.05f;
+            y += 7.0f;
             return;
         }
 
-        // 2. حدود الشاشة العادية
+        // 2. Screen Boundaries
         if (x < 0) x = 0;
         if (x > SCREEN_WIDTH - width) x = SCREEN_WIDTH - width;
         if (y < 10) y = 10;
         if (y > SCREEN_HEIGHT - height) y = SCREEN_HEIGHT - height;
 
-        // 3. التوقيتات
+        // 3. Timers
         long now = System.currentTimeMillis();
-        if (isShieldActive && now > shieldEndTime) {
-            isShieldActive = false;
-        }
-        if (isLaserBeamActive && now > laserEndTime) {
-            isLaserBeamActive = false;
-        }
-        if (isSpecialAttackActive && now > specialAttackEndTime) {
-            isSpecialAttackActive = false;
-        }
 
-        // منطق انتهاء الدرع
+        // Shield Expiration
         if (isShieldActive) {
-            if (System.currentTimeMillis() - shieldStartTime > SHIELD_DURATION) {
-                isShieldActive = false; // الغاء الدرع بعد انتهاء الوقت
+            if (now > shieldStartTime + SHIELD_DURATION) {
+                isShieldActive = false;
                 System.out.println("Shield Deactivated!");
             }
         }
-    }
-    // دالة تفعيل الدرع (Skill with Cooldown)
-    public void activateShield() {
-        long currentTime = System.currentTimeMillis();
 
-        // التحقق من أن الدرع مش شغال + عدى وقت الانتظار
-        if (!isShieldActive && (currentTime - lastShieldUseTime > SHIELD_COOLDOWN)) {
-            isShieldActive = true;
-            shieldStartTime = currentTime;
+        // Laser Expiration
+        if (isLaserBeamActive && now > laserEndTime) {
+            isLaserBeamActive = false;
+        }
 
-            // مهم جداً: نحدث shieldEndTime عشان دالة update متقفلوش بالغلط
-            shieldEndTime = currentTime + SHIELD_DURATION;
-
-            lastShieldUseTime = currentTime;
-            System.out.println("Shield Activated!");
-        } else {
-            System.out.println("Shield is on Cooldown or Active!");
+        // Super Expiration
+        if (isSpecialAttackActive && now > specialAttackEndTime) {
+            isSpecialAttackActive = false;
         }
     }
 
-    // --- التحكم في الانتقال ---
+    // --- Updated Activation Methods (Use Flags instead of Time) ---
+
+    public void activateShield() {
+        if (canUseShield && !isShieldActive) {
+            isShieldActive = true;
+            canUseShield = false; // Consume ability
+            shieldStartTime = System.currentTimeMillis();
+            System.out.println("Shield Activated!");
+        } else {
+            System.out.println("Shield not available!");
+        }
+    }
+
+    public void activateLaserBeam() {
+        if (canUseLaser && !isLaserBeamActive) {
+            isLaserBeamActive = true;
+            canUseLaser = false; // Consume ability
+            laserEndTime = System.currentTimeMillis() + 3500;
+        }
+    }
+
+    public void activateSpecialAttack() {
+        if (canUseSuper && !isSpecialAttackActive) {
+            isSpecialAttackActive = true;
+            canUseSuper = false; // Consume ability
+            specialAttackEndTime = System.currentTimeMillis() + 2000;
+            specialAttackUsedOnEnemies = false;
+        }
+    }
+
+    // --- Manual / Helper Methods ---
+
+    public void activateShieldManual() {
+        activateShield();
+    }
+
+    public void addShieldInventory() {
+        canUseShield = true; // Refill from item
+    }
+
+    public void refillLaser() {
+        canUseLaser = true; // Refill from item
+    }
+
+    public void addSpecialAmmo(int amount) {
+        canUseSuper = true; // Refill from item
+    }
+
     public void triggerFlyOff() {
         isFlyingOff = true;
         isShieldActive = false;
@@ -131,14 +185,13 @@ public class Player extends GameObject {
         isFlyingOff = false;
         isDying = false;
         animationFinished = false;
-        currentTextureIndex = 1; // العودة للصورة الطبيعية
+        currentTextureIndex = 1;
         this.x = 375;
         this.y = 50;
     }
 
-    // --- المدخلات ---
     public void handleInput(boolean[] keys) {
-        if (isFlyingOff || isDying) return; // منع الحركة أثناء الموت
+        if (isFlyingOff || isDying) return;
 
         if (keys[KeyEvent.VK_UP]) y += speed;
         if (keys[KeyEvent.VK_DOWN]) y -= speed;
@@ -146,91 +199,42 @@ public class Player extends GameObject {
         if (keys[KeyEvent.VK_RIGHT]) x += speed;
     }
 
-    // --- القدرات ---
-    public void activateShieldManual() {
-        if (isShieldAvailable && !isShieldActive && !isDying) {
-            isShieldActive = true;
-            isShieldAvailable = false;
-            shieldEndTime = System.currentTimeMillis() + 7000;
-        }
-    }
-
-    public void addShieldInventory() { isShieldAvailable = true; }
-
-    public void activateLaserBeam() {
-        if (isLaserAvailable && !isLaserBeamActive && !isDying) {
-            isLaserBeamActive = true;
-            isLaserAvailable = false;
-            laserEndTime = System.currentTimeMillis() + 3500;
-        }
-    }
-
-    public void refillLaser() { isLaserAvailable = true; }
-
     public void upgradeWeapon() { if (weaponLevel < 3) weaponLevel++; }
 
-    public void addSpecialAmmo(int amount) {
-        specialAmmo += amount;
-        if (specialAmmo > 0) specialAttackAvailable = true;
-    }
 
-    public void activateSpecialAttack() {
-        if (specialAmmo > 0 && !isSpecialAttackActive && !isDying) {
-            specialAmmo--;
-            if (specialAmmo <= 0) specialAttackAvailable = false;
-
-            isSpecialAttackActive = true;
-            specialAttackEndTime = System.currentTimeMillis() + 2000;
-            specialAttackUsedOnEnemies = false;
-        }
-    }
-
-    // --- الرسم (Render) ---
+    // --- Render ---
     @Override
     public void render(GL gl, int[] textures) {
-        // 1. رسم الليزر لو مفعل
+        // 1. Draw Laser
         if (isLaserBeamActive && !isFlyingOff && !isDying) drawLaserBeam(gl);
 
         int textureToDraw;
 
-        // 2. منطق اختيار الصورة
+        // 2. Select Texture based on Health
         if (!isDying) {
-            // ============================================================
-            // التعديل الجديد: تغيير الصورة بناءً على نسبة الصحة الحالية
-            // ============================================================
             float healthPercent = (float) health / (float) MAX_HEALTH;
-
             if (healthPercent > 0.75f) {
-                textureToDraw = textures[1]; // صحة ممتازة (Hero.png)
+                textureToDraw = textures[1];
             } else if (healthPercent > 0.50f) {
-                textureToDraw = textures[2]; // خدوش بسيطة (Hero2.png)
+                textureToDraw = textures[2];
             } else if (healthPercent > 0.25f) {
-                textureToDraw = textures[3]; // متضرر (Hero3.png)
+                textureToDraw = textures[3];
             } else {
-                textureToDraw = textures[4]; // حالة حرجة (Hero4.png)
+                textureToDraw = textures[4];
             }
-
-            // عشان لما أنيميشن الموت يبدأ، يبدأ من آخر صورة كان عليها (اختياري)
-            // currentTextureIndex = (healthPercent > 0.75f) ? 1 : ...;
         } else {
-            // ============================================================
-            // حالة الموت: تدرج الصور (الأنيميشن)
-            // ============================================================
+            // Death Animation
             dieFrameCounter++;
             if (dieFrameCounter > dieFrameDelay) {
                 dieFrameCounter = 0;
-
-                // التأكد من بداية الأنيميشن بشكل صحيح
                 if (currentTextureIndex < 2) currentTextureIndex = 2;
 
                 if (currentTextureIndex < 4) {
-                    currentTextureIndex++; // انتقل للصورة التالية
+                    currentTextureIndex++;
                 } else {
-                    animationFinished = true; // انتهى العرض واختفى اللاعب
+                    animationFinished = true;
                 }
             }
-
-            // حماية عشان مياخدش اندكس غلط
             if (currentTextureIndex < textures.length) {
                 textureToDraw = textures[currentTextureIndex];
             } else {
@@ -238,12 +242,12 @@ public class Player extends GameObject {
             }
         }
 
-        // 3. رسم اللاعب (فقط إذا لم ينته أنيميشن الموت)
+        // 3. Draw Player
         if (!animationFinished) {
             drawTexture(gl, textureToDraw, x, y, width, height);
         }
 
-        // 4. رسم شعلة المحرك (تظهر فقط وهو حي)
+        // 4. Draw Engine Flame
         if (isFlyingOff && !isDying) {
             gl.glEnable(GL.GL_BLEND);
             gl.glColor4f(1.0f, 0.5f, 0.0f, 0.8f);
@@ -256,43 +260,34 @@ public class Player extends GameObject {
             gl.glColor3f(1,1,1);
         }
 
-        // 5. رسم البار والدرع (يظهروا فقط وهو حي ومش بيطير للنهاية)
-        if (!isFlyingOff && !isDying) {
-            drawHealthBar(gl);
-            if (isShieldActive) drawShield(gl);
-        }
-
-        // رسم تأثير الدرع (صورة بتلف)
+        // 5. Draw Shield Texture Only
         if (isShieldActive) {
             drawShieldTexture(gl, textures);
         }
     }
-    // دالة مساعدة لرسم دايرة زرقاء حوالين اللاعب
+
+    // --- Helper Methods (Kept as requested) ---
+
     private void drawShieldEffect(GL gl) {
-        gl.glDisable(GL.GL_TEXTURE_2D); // نوقف الصور عشان نرسم خطوط
-        gl.glEnable(GL.GL_BLEND); // شفافية
-
-        gl.glColor4f(0.0f, 1.0f, 1.0f, 0.5f); // لون سماوي نصف شفاف
+        gl.glDisable(GL.GL_TEXTURE_2D);
+        gl.glEnable(GL.GL_BLEND);
+        gl.glColor4f(0.0f, 1.0f, 1.0f, 0.5f);
         gl.glLineWidth(3.0f);
-
         gl.glBegin(GL.GL_LINE_LOOP);
-        float radius = 40; // نصف القطر (اكبر من اللاعب بشوية)
-        float centerX = x + width / 2; // منتصف اللاعب
+        float radius = 40;
+        float centerX = x + width / 2;
         float centerY = y + height / 2;
-
         for (int i = 0; i < 360; i++) {
             double angle = Math.toRadians(i);
             gl.glVertex2d(centerX + Math.cos(angle) * radius, centerY + Math.sin(angle) * radius);
         }
         gl.glEnd();
-
-        gl.glEnable(GL.GL_TEXTURE_2D); // نرجع الصور تاني
-        gl.glColor3f(1, 1, 1); // نرجع اللون أبيض
+        gl.glEnable(GL.GL_TEXTURE_2D);
+        gl.glColor3f(1, 1, 1);
     }
+
     private void drawShieldTexture(GL gl, int[] textures) {
         gl.glEnable(GL.GL_BLEND);
-
-        // تأكد من استخدام الاندكس الصحيح (27 أو حسب ما وضعت shield.png)
         if (textures.length > 27) {
             gl.glBindTexture(GL.GL_TEXTURE_2D, textures[27]);
         } else {
@@ -300,21 +295,12 @@ public class Player extends GameObject {
         }
 
         gl.glPushMatrix();
-
-        // 1. نقل الرسم لمنتصف اللاعب
         float centerX = x + width / 2;
         float centerY = y + height / 2;
         gl.glTranslated(centerX, centerY, 0);
 
-        // ---------------------------------------------------------
-        // تم حذف سطور الدوران من هنا
-        // shieldAngle += 2.0f;        <-- حذفنا ده
-        // gl.glRotated(shieldAngle, 0, 0, 1); <-- وحذفنا ده
-        // ---------------------------------------------------------
-
-        // 2. رسم الدرع (مربع حول المركز)
-        float sSize = width + 30; // حجم الدرع
-        gl.glColor4f(1f, 1f, 1f, 0.8f); // شفافية
+        float sSize = width + 30;
+        gl.glColor4f(1f, 1f, 1f, 0.8f);
 
         gl.glBegin(GL.GL_QUADS);
         gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2d(-sSize/2, -sSize/2);
@@ -324,13 +310,13 @@ public class Player extends GameObject {
         gl.glEnd();
 
         gl.glPopMatrix();
-
         gl.glDisable(GL.GL_BLEND);
-    }    protected void drawTexture(GL gl, int textureId, float x, float y, float w, float h) {
+    }
+
+    protected void drawTexture(GL gl, int textureId, float x, float y, float w, float h) {
         gl.glEnable(GL.GL_BLEND);
         gl.glBindTexture(GL.GL_TEXTURE_2D, textureId);
         gl.glColor3f(1, 1, 1);
-
         gl.glPushMatrix();
         gl.glBegin(GL.GL_QUADS);
         gl.glTexCoord2f(0.0f, 1.0f); gl.glVertex2f(x, y + h);
@@ -339,58 +325,45 @@ public class Player extends GameObject {
         gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2f(x, y);
         gl.glEnd();
         gl.glPopMatrix();
-
         gl.glDisable(GL.GL_BLEND);
     }
 
-    // In Player.java
+    // Kept but unused in render
     private void drawHealthBar(GL gl) {
-        // 1. إيقاف التكستشر للرسم الهندسي
         gl.glDisable(GL.GL_TEXTURE_2D);
-
-        // 2. إعدادات الحجم (نفس ستايل الأعداء: صغير ورفيع)
-        float barTotalWidth = 40f; // عرض ثابت وصغير
-        float barHeight = 4f;      // سمك رفيع
-
-        // 3. التمركز (تحت الطيارة بـ 10 بيكسل)
-        // بنحسب نقطة البداية عشان يكون في نص عرض اللاعب بالظبط
+        float barTotalWidth = 40f;
+        float barHeight = 4f;
         float barStartX = x + (width - barTotalWidth) / 2;
         float barStartY = y - 10;
-
-        // 4. حساب النسبة
         float healthPercent = Math.max(0f, Math.min((float) health / MAX_HEALTH, 1f));
 
-        // 5. رسم الخلفية (أحمر غامق)
         gl.glColor3f(0.6f, 0.0f, 0.0f);
         gl.glRectf(barStartX, barStartY, barStartX + barTotalWidth, barStartY + barHeight);
 
-        // 6. رسم الصحة الحالية (أخضر ساطع)
         if (healthPercent > 0) {
             gl.glColor3f(0.0f, 1.0f, 0.0f);
             gl.glRectf(barStartX, barStartY, barStartX + (barTotalWidth * healthPercent), barStartY + barHeight);
         }
-
-        // 7. استعادة الألوان والتكستشر
         gl.glColor3f(1, 1, 1);
         gl.glEnable(GL.GL_TEXTURE_2D);
     }
+
+    // Kept but unused in render
     private void drawShield(GL gl) {
         gl.glEnable(GL.GL_BLEND); gl.glColor4f(0.0f, 1.0f, 1.0f, 0.4f);
         float cx = x + width/2, cy = y + height/2; float radius = 45;
         gl.glBegin(GL.GL_POLYGON); for (int i = 0; i < 360; i += 20) { double angle = Math.toRadians(i); gl.glVertex2d(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius); } gl.glEnd();
         gl.glDisable(GL.GL_BLEND); gl.glColor3f(1,1,1);
     }
+
     private void drawLaserBeam(GL gl) {
-        // 1. إيقاف نظام الصور مؤقتاً للرسم الهندسي
         gl.glDisable(GL.GL_TEXTURE_2D);
         gl.glEnable(GL.GL_BLEND);
 
-        float cx = x + width / 2; // منتصف اللاعب
-        float yStart = y + height; // بداية الليزر من مقدمة الطائرة
-        float yEnd = 600;          // نهاية الشاشة
+        float cx = x + width / 2;
+        float yStart = y + height;
+        float yEnd = 600;
 
-        // --- الطبقة الخارجية (التوهج - Glow) ---
-        // لون سماوي (Cyan) مع شفافية 0.4
         gl.glColor4f(0.0f, 1.0f, 1.0f, 0.4f);
         gl.glBegin(GL.GL_QUADS);
         gl.glVertex2f(cx - 15, yStart);
@@ -399,21 +372,19 @@ public class Player extends GameObject {
         gl.glVertex2f(cx - 15, yEnd);
         gl.glEnd();
 
-        // --- الطبقة الداخلية (القلب - Core) ---
-        // لون أبيض ساطع (White) ورفيع
         gl.glColor4f(1.0f, 1.0f, 1.0f, 0.9f);
         gl.glBegin(GL.GL_QUADS);
-        gl.glVertex2f(cx - 4, yStart); // أرفع (4 بكسل)
+        gl.glVertex2f(cx - 4, yStart);
         gl.glVertex2f(cx + 4, yStart);
         gl.glVertex2f(cx + 4, yEnd);
         gl.glVertex2f(cx - 4, yEnd);
         gl.glEnd();
 
-        // 2. إعادة تفعيل نظام الصور واللون الطبيعي لباقي اللعبة
         gl.glEnable(GL.GL_TEXTURE_2D);
         gl.glDisable(GL.GL_BLEND);
         gl.glColor3f(1, 1, 1);
     }
+
     public Rectangle getLaserBounds() { return new Rectangle((int) (x + width / 2 - 10), (int) (y + height), 20, 600); }
     public int getHealth() { return health; }
     public void setHealth(int health) { this.health = health; }

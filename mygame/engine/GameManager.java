@@ -1,5 +1,6 @@
 package com.mygame.engine;
 
+import com.mygame.Game;
 import com.mygame.objects.*;
 import javax.media.opengl.GL;
 import java.awt.*;
@@ -8,6 +9,7 @@ import java.util.Random;
 
 
 public class GameManager {
+    private final Game game;
     // متغير لتخزين وقت آخر ضربة تلقاها اللاعب
     private long lastDamageTime = 0;
     // متغيرات التحكم في كثافة الأعداء
@@ -33,17 +35,22 @@ public class GameManager {
     private long lastAutoShotTime = 0;
     private int fireRate = 300;
     private long lastRandomSpawnTime = 0;
-
-    public GameManager() {
+    
+    public GameManager(Game game) {
+        this.game = game;
         player = new Player(375, 50);
         activeMiddleEnemies = new ArrayList<>();
         enemies = new ArrayList<>();
         bullets = new ArrayList<>();
         items = new ArrayList<>();
     }
-
     public void update() {
-        if (!isGameRunning || gameOver || gameWon) return;
+        if (!isGameRunning) return; // إذا اللعبة متوقفة، تجاهل
+        if (gameOver || gameWon) {
+            isGameRunning = false;
+            game.handleGameOver(gameWon, score);   // إرسال النتيجة إلى Game
+            return;
+        }
 
         // ------------------------------------------
         // التحقق من حالة موت اللاعب (تعديل مهم)
@@ -163,132 +170,174 @@ public class GameManager {
         }
     }
     public void render(GL gl, int[] textures) {
-        // 1. شاشة البداية (إذا اللعبة لم تبدأ بعد)
+        // لو اللعبة مش شغالة (أو لسه بتبدأ)، ما ترسمش حاجة قديمة
+        // الـ GUI هو اللي مغطي الشاشة دلوقتي
         if (!isGameRunning) {
-            drawStartScreen(gl);
             return;
         }
 
-        // اللعبة جارية (ليست خسارة وليست فوز)
-        if (!gameOver && !gameWon) {
+        // =============================================================
+        //  رسم عناصر اللعبة (سواء بنلعب أو خسرنا، الخلفية تفضل موجودة)
+        // =============================================================
 
-            // =============================================================
-            // 2. رسم اللاعب
-            // =============================================================
-            // ملاحظة: اللاعب يرسم البار الخاص به داخل كلاس Player.java
-            player.render(gl, textures);
+        // 1. رسم اللاعب
+        player.render(gl, textures);
 
-            // =============================================================
-            // 3. رسم الطلقات (Bullets)
-            // =============================================================
-            for (Bullet b : bullets) {
-                b.render(gl, textures);
-            }
-
-            // =============================================================
-            // 4. رسم العناصر (Items)
-            // =============================================================
-            for (Item item : items) {
-                item.render(gl, textures);
-            }
-
-            // =============================================================
-            // 5. رسم الأعداء المتوسطين (Middle Enemies) + Health Bar
-            // =============================================================
-            for (MiddleEnemy me : activeMiddleEnemies) {
-                // أ) رسم صورة العدو
-                me.render(gl, textures);
-
-                // ب) رسم شريط الصحة (Manual Rendering)
-                gl.glDisable(GL.GL_TEXTURE_2D);
-
-                // إعدادات الحجم (شريط صغير)
-                float barTotalWidth = 40f;
-                float barHeight = 4f;
-
-                // حساب التمركز: (مكان العدو + نص عرضه) - (نص عرض البار)
-                // ملحوظة: نستخدم 60 كعرض تقريبي للعدو المتوسط إذا لم يكن المتغير width متاحاً
-                // لو المتغير width متاح في MiddleEnemy استخدم: me.width
-                float enemyWidth = 35;
-                float barStartX = me.x -19;
-                float barStartY = me.y + enemyWidth; // فوق العدو بمسافة
-
-                float percent = (float)me.health / (float)me.maxHealth;
-
-                // الخلفية الحمراء
-                gl.glColor3f(0.6f, 0.0f, 0.0f);
-                gl.glRectf(barStartX, barStartY, barStartX + barTotalWidth, barStartY + barHeight);
-
-                // النسبة الخضراء
-                if (percent > 0) {
-                    gl.glColor3f(0.0f, 1.0f, 0.0f);
-                    gl.glRectf(barStartX, barStartY, barStartX + (barTotalWidth * percent), barStartY + barHeight);
-                }
-
-                // استعادة التكستشر
-                gl.glColor3f(1, 1, 1);
-                gl.glEnable(GL.GL_TEXTURE_2D);
-            }
-
-            // =============================================================
-            // 6. رسم الزعيم (Boss)
-            // =============================================================
-            if (bossActive && boss != null) {
-                boss.render(gl, textures);
-                // الزعيم عادة يرسم البار الخاص به داخلياً أو يمكنك إضافته هنا بنفس الطريقة
-            }
-
-            // =============================================================
-            // 7. رسم الأعداء العاديين (Enemies) + Health Bar
-            // =============================================================
-            for (Enemy e : enemies) {
-                // أ) رسم صورة العدو
-                e.render(gl, textures);
-
-                // ب) رسم شريط الصحة المصغر
-                gl.glDisable(GL.GL_TEXTURE_2D);
-
-                float barTotalWidth = 30f;  // أصغر قليلاً من المتوسط
-                float barHeight = 4f;
-
-                // تمركز البار
-                float barStartX = e.getX() + (e.width - barTotalWidth) / 2;
-                float barStartY = e.getY() + e.height + 5;
-
-                float percent = (float)e.health / (float)e.maxHealth;
-
-                // رسم الخلفية (أحمر)
-                gl.glColor3f(0.6f, 0.0f, 0.0f);
-                gl.glRectf(barStartX, barStartY, barStartX + barTotalWidth, barStartY + barHeight);
-
-                // رسم الصحة (أخضر)
-                if (percent > 0) {
-                    gl.glColor3f(0.0f, 1.0f, 0.0f);
-                    gl.glRectf(barStartX, barStartY, barStartX + (barTotalWidth * percent), barStartY + barHeight);
-                }
-
-                // استعادة التكستشر والألوان
-                gl.glColor3f(1, 1, 1);
-                gl.glEnable(GL.GL_TEXTURE_2D);
-            }
-
-            // =============================================================
-            // 8. رسم واجهة المستخدم (HUD)
-            // =============================================================
-            drawPlayerPowerIndicators(gl);
-
-
-        } else if (gameWon) {
-            // شاشة الفوز
-            gl.glClearColor(0, 0.5f, 0, 1);
-            gl.glClear(GL.GL_COLOR_BUFFER_BIT);
-            // يمكنك رسم رسالة "You Won" هنا
-        } else {
-            // شاشة الخسارة
-            gl.glClearColor(0.5f, 0, 0, 1);
-            gl.glClear(GL.GL_COLOR_BUFFER_BIT);
-            // يمكنك رسم رسالة "Game Over" هنا
+        // 2. رسم الطلقات
+        for (Bullet b : bullets) {
+            b.render(gl, textures);
         }
+
+        // 3. رسم العناصر (Items)
+        for (Item item : items) {
+            item.render(gl, textures);
+        }
+
+        // 4. رسم الأعداء المتوسطين + Health Bar
+        for (MiddleEnemy me : activeMiddleEnemies) {
+            me.render(gl, textures);
+
+            // رسم بار الصحة للعدو المتوسط
+            gl.glDisable(GL.GL_TEXTURE_2D);
+            float barStartX = me.x - 19;
+            float barStartY = me.y + 35;
+            float percent = (float) me.health / (float) me.maxHealth;
+
+            gl.glColor3f(0.6f, 0.0f, 0.0f);
+            gl.glRectf(barStartX, barStartY, barStartX + 40f, barStartY + 4f);
+
+            if (percent > 0) {
+                gl.glColor3f(0.0f, 1.0f, 0.0f);
+                gl.glRectf(barStartX, barStartY, barStartX + (40f * percent), barStartY + 4f);
+            }
+            gl.glColor3f(1, 1, 1);
+            gl.glEnable(GL.GL_TEXTURE_2D);
+        }
+
+        // 5. رسم الزعيم (Boss)
+        if (bossActive && boss != null) {
+            boss.render(gl, textures);
+        }
+
+        // 6. رسم الأعداء العاديين + Health Bar
+        for (Enemy e : enemies) {
+            e.render(gl, textures);
+
+            // رسم بار الصحة للعدو العادي
+            gl.glDisable(GL.GL_TEXTURE_2D);
+            float barTotalWidth = 30f;
+            float barStartX = e.getX() + (e.width - barTotalWidth) / 2;
+            float barStartY = e.getY() + e.height + 5;
+            float percent = (float) e.health / (float) e.maxHealth;
+
+            gl.glColor3f(0.6f, 0.0f, 0.0f);
+            gl.glRectf(barStartX, barStartY, barStartX + barTotalWidth, barStartY + 4f);
+
+            if (percent > 0) {
+                gl.glColor3f(0.0f, 1.0f, 0.0f);
+                gl.glRectf(barStartX, barStartY, barStartX + (barTotalWidth * percent), barStartY + 4f);
+            }
+            gl.glColor3f(1, 1, 1);
+            gl.glEnable(GL.GL_TEXTURE_2D);
+        }
+
+        // 7. رسم واجهة المستخدم (HUD)
+        if (player.isAlive()) {
+            drawPlayerHUD(gl, textures);
+        }
+
+        // --- (تم حذف كود الشاشة الحمراء والخضراء من هنا) ---
+        // لأننا بنوقف الـ Animator فوراً لما اللعبة تخلص، والـ EndLevelFrame بيظهر
+    }
+    // =============================================================
+    // الدوال المساعدة لرسم الـ HUD الجديد (ضعها داخل GameManager)
+    // =============================================================
+
+    private void drawPlayerHUD(GL gl, int[] textures) {
+        // 1. رسم بار الصحة الثابت
+        drawHealthBarOnly(gl);
+
+        // 2. تفعيل الصور لرسم الأيقونات
+        gl.glEnable(GL.GL_TEXTURE_2D);
+
+        float startX = 20;
+        float startY = 20;
+        float iconSize = 40;
+        float padding = 10;
+
+        // ---------------------------------------------------
+        // 1. أيقونة الليزر (زر Z) -> Index 41
+        // ---------------------------------------------------
+        // التعديل: نستخدم المتغير المباشر بدلاً من الوقت
+        if (player.canUseLaser) gl.glColor3f(1.0f, 1.0f, 1.0f); // منور
+        else gl.glColor3f(0.3f, 0.3f, 0.3f);                    // مطفي
+
+        if (textures.length > 41) drawIcon(gl, textures[41], startX, startY, iconSize);
+
+        // ---------------------------------------------------
+        // 2. أيقونة الدرع (زر X) -> Index 42
+        // ---------------------------------------------------
+        // التعديل: نستخدم المتغير المباشر
+        if (player.canUseShield) gl.glColor3f(1.0f, 1.0f, 1.0f);
+        else gl.glColor3f(0.3f, 0.3f, 0.3f);
+
+        if (textures.length > 42) drawIcon(gl, textures[42], startX + iconSize + padding, startY, iconSize);
+
+        // ---------------------------------------------------
+        // 3. أيقونة السوبر (زر Space) -> Index 43
+        // ---------------------------------------------------
+        // التعديل: نستخدم المتغير المباشر
+        if (player.canUseSuper) gl.glColor3f(1.0f, 1.0f, 1.0f);
+        else gl.glColor3f(0.3f, 0.3f, 0.3f);
+
+        if (textures.length > 43) drawIcon(gl, textures[43], startX + (iconSize + padding) * 2, startY, iconSize);
+
+        // إعادة اللون للأبيض
+        gl.glColor3f(1, 1, 1);
+    }    private void drawIcon(GL gl, int textureId, float x, float y, float size) {
+        gl.glBindTexture(GL.GL_TEXTURE_2D, textureId);
+        gl.glBegin(GL.GL_QUADS);
+        gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2f(x, y);
+        gl.glTexCoord2f(1.0f, 0.0f); gl.glVertex2f(x + size, y);
+        gl.glTexCoord2f(1.0f, 1.0f); gl.glVertex2f(x + size, y + size);
+        gl.glTexCoord2f(0.0f, 1.0f); gl.glVertex2f(x, y + size);
+        gl.glEnd();
+    }
+
+    private void drawHealthBarOnly(GL gl) {
+        gl.glDisable(GL.GL_TEXTURE_2D);
+
+        // إعدادات المكان (أعلى اليسار)
+        float barX = 20;
+        // التعديل هنا: 570 تعني في الأعلى (لأن الشاشة ارتفاعها 600)
+        float barY = 570;
+
+        float barWidth = 200; // جعلناه أعرض قليلاً ليناسب مكان الـ HUD
+        float barHeight = 15;
+
+        // الخلفية (أحمر غامق)
+        gl.glColor3f(0.5f, 0.0f, 0.0f);
+        gl.glRectf(barX, barY, barX + barWidth, barY + barHeight);
+
+        // الصحة الحالية (أخضر)
+        float hpPercent = (float) player.getHealth() / Player.MAX_HEALTH;
+        if (hpPercent < 0) hpPercent = 0;
+
+        gl.glColor3f(0.0f, 1.0f, 0.0f);
+        gl.glRectf(barX, barY, barX + (barWidth * hpPercent), barY + barHeight);
+
+        // إطار أبيض
+        gl.glColor3f(1.0f, 1.0f, 1.0f);
+        gl.glLineWidth(2.0f);
+        gl.glBegin(GL.GL_LINE_LOOP);
+        gl.glVertex2f(barX, barY);
+        gl.glVertex2f(barX + barWidth, barY);
+        gl.glVertex2f(barX + barWidth, barY + barHeight);
+        gl.glVertex2f(barX, barY + barHeight);
+        gl.glEnd();
+
+        // إعادة تفعيل الصور
+        gl.glEnable(GL.GL_TEXTURE_2D);
     }// لتوفير المساحة سأفترض أنك تملك باقي الكلاس، فقط استبدل playerTakeDamage و update
     // في GameManager
     public void activateShield2() {
@@ -321,7 +370,7 @@ public class GameManager {
                 } else {
                     // --- حالة بدون درع ---
                     // اللاعب يتضرر
-                    player.setHealth(player.getHealth() - 30);
+                    player.setHealth(player.getHealth() - 10);
                     if (player.getHealth() <= 0) {
                         player.setHealth(0);
                         player.isDying = true;
@@ -453,7 +502,7 @@ public class GameManager {
 
                     if (!player.isShieldActive) {
                         // لو مفيش درع، دمج للاعب
-                        player.setHealth(player.getHealth() - 3);
+                        player.setHealth(player.getHealth() - 2);
                         if (player.getHealth() <= 0) {
                             player.setHealth(0);
                             player.isDying = true;
@@ -501,6 +550,57 @@ public class GameManager {
             }
         }
     }    private void handleBossDefeat() { bossActive = false; boss = null; score += 500; enemies.clear(); activeMiddleEnemies.clear(); bullets.clear(); isLevelTransitioning = true; player.triggerFlyOff(); }
+    // دالة لرسم واجهة المستخدم (HUD) - البار الثابت
+    private void drawPlayerHUD(GL gl) {
+        // نوقف التكستشر عشان نرسم ألوان سادة
+        gl.glDisable(GL.GL_TEXTURE_2D);
+
+        // إعدادات المكان (فوق على الشمال)
+        float barX = 20;   // مسافة من الشمال
+        float barY = 560;  // مسافة من تحت (يعني قريب من سقف الشاشة 600)
+        float barWidth = 200; // عرض البار
+        float barHeight = 20; // سمك البار
+
+        // 1. رسم الخلفية (أحمر غامق - الجزء الفاضي)
+        gl.glColor3f(0.5f, 0.0f, 0.0f);
+        gl.glBegin(GL.GL_QUADS);
+        gl.glVertex2f(barX, barY);
+        gl.glVertex2f(barX + barWidth, barY);
+        gl.glVertex2f(barX + barWidth, barY + barHeight);
+        gl.glVertex2f(barX, barY + barHeight);
+        gl.glEnd();
+
+        // 2. رسم الصحة الحالية (أخضر - الجزء المليان)
+        // بنحسب النسبة: الصحة الحالية / الصحة القصوى
+        float hpPercent = (float) player.getHealth() / player.MAX_HEALTH;
+
+        // حماية: عشان البار ميرسمش بالسالب لو الصحة تحت الصفر
+        if (hpPercent < 0) hpPercent = 0;
+
+        gl.glColor3f(0.0f, 1.0f, 0.0f);
+        gl.glBegin(GL.GL_QUADS);
+        gl.glVertex2f(barX, barY);
+        gl.glVertex2f(barX + (barWidth * hpPercent), barY);
+        gl.glVertex2f(barX + (barWidth * hpPercent), barY + barHeight);
+        gl.glVertex2f(barX, barY + barHeight);
+        gl.glEnd();
+
+        // 3. (إضافي) إطار أبيض عشان الشكل يبان أنضف
+        gl.glColor3f(1.0f, 1.0f, 1.0f);
+        gl.glLineWidth(2.0f); // تخانة الخط
+        gl.glBegin(GL.GL_LINE_LOOP);
+        gl.glVertex2f(barX, barY);
+        gl.glVertex2f(barX + barWidth, barY);
+        gl.glVertex2f(barX + barWidth, barY + barHeight);
+        gl.glVertex2f(barX, barY + barHeight);
+        gl.glEnd();
+
+        // نرجع التكستشر عشان باقي اللعبة
+        gl.glEnable(GL.GL_TEXTURE_2D);
+
+        // نرجع اللون للأبيض عشان الصور متتأثرش بالأخضر
+        gl.glColor3f(1, 1, 1);
+    }
     private void startNextLevel() {
         isLevelTransitioning = false;
         currentLevel++;
@@ -531,6 +631,7 @@ public class GameManager {
         // ============================================================
 
         if (currentLevel > 3) gameWon = true;
+        player.resetAbilities();
     }
     // دالة مساعدة لاختيار صورة عشوائية للأعداء (من 21 لـ 23)
     private int getRandomEnemyTexture() {
@@ -600,6 +701,31 @@ public class GameManager {
             enemies.add(new Enemy(centerX + offsetX, startY + offsetY, 60, Enemy.TypesOfEnemies.SQUAD_V, player, squadTexture));
         }
     }
+    public void resetGame() {
+        // إعادة ضبط اللاعب
+        player.setHealth(Player.MAX_HEALTH);
+        player.setAlive(true);
+        player.resetPosition();
+        player.animationFinished = false;
+
+        // إعادة ضبط الأعداء والطلقات والعناصر
+        enemies.clear();
+        activeMiddleEnemies.clear();
+        bullets.clear();
+        items.clear();
+
+        // إعادة ضبط متغيرات اللعبة
+        score = 0;
+        currentLevel = 1;
+        waveStep = 0;
+        bossActive = false;
+        boss = null;
+        middleWaveSpawned = false;
+        gameOver = false;
+        gameWon = false;
+        isGameRunning = true;
+    }
+
 
     private void spawnSquadSide(boolean fromLeft, int count) {
         // توحيد شكل السرب

@@ -1,11 +1,12 @@
-package mygame2.GUI;
+package com.mygame.GUI;
 
-import javax.sound.sampled.*;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.geom.Path2D;
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -26,48 +27,30 @@ public class PauseMenuFrame extends JFrame {
     private ShootingStar shootingStar;
     private final Timer animationTimer;
 
-    private static int volumeLevel = 70;
-    private Clip backgroundClip;
+    private static boolean isMuted = false;
 
     public PauseMenuFrame(ActionListener onResume, ActionListener onRestart, ActionListener onMenu, ActionListener onToggleSound) {
         setTitle("SYSTEM PAUSED");
-        setSize(600, 480);
+        setSize(600, 450);
         setLocationRelativeTo(null);
         setUndecorated(true);
         setBackground(new Color(0, 0, 0, 0));
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setAlwaysOnTop(true);
 
-        // تحميل الصوت
-        try {
-            File musicFile = new File("resources/music.wav");
-            if (musicFile.exists()) {
-                AudioInputStream audioStream = AudioSystem.getAudioInputStream(musicFile);
-                backgroundClip = AudioSystem.getClip();
-                backgroundClip.open(audioStream);
-                backgroundClip.loop(Clip.LOOP_CONTINUOUSLY);
-                setVolumeLevel();
-            }
-        } catch (Exception e) {
-            // تجاهل الخطأ لو الصوت مش موجود
-        }
-
-        // --- النجوم ---
+        // 1. النجوم
         for (int i = 0; i < 150; i++) stars.add(new Star(getWidth(), getHeight()));
         shootingStar = new ShootingStar(getWidth(), getHeight());
 
-        // --- اللوحة الرئيسية ---
+        // 2. اللوحة الرئيسية
         JPanel mainPanel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
-                // تفعيل Double Buffering يدويًا لضمان النعومة
-                if (!isDoubleBuffered()) setDoubleBuffered(true);
-
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 int w = getWidth(), h = getHeight();
 
-                // شكل الإطار المقصوص
+                // شكل النافذة
                 Path2D path = new Path2D.Double();
                 int corner = 30;
                 path.moveTo(corner, 0);
@@ -82,7 +65,7 @@ public class PauseMenuFrame extends JFrame {
 
                 g2.setClip(path);
 
-                // الخلفية
+                // الخلفية الفضائية
                 GradientPaint gp = new GradientPaint(w / 2, 0, SPACE_DARK, w / 2, h, Color.BLACK);
                 g2.setPaint(gp);
                 g2.fillRect(0, 0, w, h);
@@ -91,7 +74,7 @@ public class PauseMenuFrame extends JFrame {
                 drawShootingStar(g2);
                 drawTechGrid(g2, w, h);
 
-                // البرواز المضيء
+                // الإطار الخارجي المتوهج
                 g2.setStroke(new BasicStroke(3));
                 g2.setColor(new Color(HUD_ORANGE.getRed(), HUD_ORANGE.getGreen(), HUD_ORANGE.getBlue(), 200));
                 g2.draw(path);
@@ -99,79 +82,49 @@ public class PauseMenuFrame extends JFrame {
                 g2.dispose();
             }
         };
-        // استخدام GridBagLayout للوحة الرئيسية عشان التوسيط يكون سليم
         mainPanel.setLayout(new GridBagLayout());
 
-        // --- لوحة المحتوى (الأزرار) ---
-        // 🛑 التعديل الأهم: استبدال BoxLayout بـ GridBagLayout لمنع الاهتزاز
-        JPanel contentPanel = new JPanel(new GridBagLayout());
+        // 3. المحتوى (النصوص والأزرار)
+        JPanel contentPanel = new JPanel();
+        contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
         contentPanel.setOpaque(false);
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-        gbc.gridy = GridBagConstraints.RELATIVE;
-        gbc.insets = new Insets(10, 0, 10, 0); // مسافات ثابتة بين العناصر
-        gbc.anchor = GridBagConstraints.CENTER;
-        gbc.fill = GridBagConstraints.NONE;
-
-        // العنوان
         JLabel titleLabel = new JLabel("PAUSED");
         titleLabel.setFont(new Font("Verdana", Font.BOLD, 36));
         titleLabel.setForeground(HUD_ORANGE);
-        // زيادة المسافة تحت العنوان
-        gbc.insets = new Insets(0, 0, 30, 0);
-        contentPanel.add(titleLabel, gbc);
-
-        // إرجاع المسافات الطبيعية
-        gbc.insets = new Insets(10, 0, 10, 0);
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 30, 0));
 
         JButton resumeBtn = createGameButton("RESUME MISSION", HUD_CYAN);
         JButton restartBtn = createGameButton("RESTART LEVEL", HUD_GREEN);
         JButton menuBtn = createGameButton("BACK TO MENU", HUD_RED);
+        JButton muteBtn = createGameButton(isMuted ? "SOUND: OFF" : "SOUND: ON", HUD_YELLOW);
 
-        // شريط الصوت
-        JLabel soundLabel = new JLabel("VOLUME", SwingConstants.CENTER);
-        soundLabel.setFont(new Font("Verdana", Font.BOLD, 16));
-        soundLabel.setForeground(HUD_YELLOW);
-
-        JSlider volumeSlider = new JSlider(0, 100, volumeLevel);
-        volumeSlider.setOpaque(false);
-        volumeSlider.setForeground(HUD_YELLOW);
-        volumeSlider.setPreferredSize(new Dimension(250, 40));
-        volumeSlider.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        volumeSlider.addChangeListener(e -> {
-            volumeLevel = volumeSlider.getValue();
-            setVolumeLevel();
-            if (onToggleSound != null) {
-                onToggleSound.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "VOLUME:" + volumeLevel));
-            }
-        });
-
-        // إضافة العناصر للوحة الثابتة
         resumeBtn.addActionListener(onResume);
         restartBtn.addActionListener(onRestart);
         menuBtn.addActionListener(onMenu);
+        muteBtn.addActionListener(e -> {
+            isMuted = !isMuted;
+            muteBtn.setText(isMuted ? "SOUND: OFF" : "SOUND: ON");
+            onToggleSound.actionPerformed(e);
+        });
 
-        contentPanel.add(resumeBtn, gbc);
-        contentPanel.add(restartBtn, gbc);
-
-        gbc.insets = new Insets(20, 0, 5, 0); // مسافة قبل كلمة Volume
-        contentPanel.add(soundLabel, gbc);
-
-        gbc.insets = new Insets(0, 0, 20, 0);
-        contentPanel.add(volumeSlider, gbc);
-
-        gbc.insets = new Insets(10, 0, 10, 0);
-        contentPanel.add(menuBtn, gbc);
+        contentPanel.add(titleLabel);
+        contentPanel.add(resumeBtn);
+        contentPanel.add(Box.createVerticalStrut(15));
+        contentPanel.add(restartBtn);
+        contentPanel.add(Box.createVerticalStrut(15));
+        contentPanel.add(muteBtn);
+        contentPanel.add(Box.createVerticalStrut(15));
+        contentPanel.add(menuBtn);
 
         mainPanel.add(contentPanel);
         add(mainPanel);
 
-        // --- Timer ---
+        // 4. الأنيميشن
         animationTimer = new Timer(16, e -> {
             updateSpace();
-            mainPanel.repaint(); // تحديث الخلفية فقط
+            mainPanel.repaint();
         });
         animationTimer.start();
 
@@ -179,49 +132,30 @@ public class PauseMenuFrame extends JFrame {
     }
 
     private void setupEscKey(ActionListener onResume) {
-        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
-                .put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "Resume");
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+                KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "Resume");
         getRootPane().getActionMap().put("Resume", new AbstractAction() {
             @Override
-            public void actionPerformed(ActionEvent e) {
-                if (onResume != null) onResume.actionPerformed(e);
+            public void actionPerformed(java.awt.event.ActionEvent e) {
+                onResume.actionPerformed(e);
             }
         });
     }
 
-    private void setVolumeLevel() {
-        if (backgroundClip == null || !backgroundClip.isOpen()) return;
-        try {
-            FloatControl gainControl = (FloatControl) backgroundClip.getControl(FloatControl.Type.MASTER_GAIN);
-            float min = gainControl.getMinimum();
-            float max = gainControl.getMaximum();
-            float range = max - min;
-            float gain = min + (range * (volumeLevel / 100f));
-            gainControl.setValue(gain);
-        } catch (Exception e) {
-        }
-    }
-
-    // ==========================================
-    // 🛑 زر ثابت لا يهتز (Anti-Shake Button)
-    // ==========================================
     private JButton createGameButton(String text, Color baseColor) {
         JButton btn = new JButton(text) {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                // استخدام مقاسات ثابتة
-                int w = getWidth();
-                int h = getHeight();
+                int w = getWidth(), h = getHeight();
 
                 Polygon p = new Polygon();
-                p.addPoint(15, 0);
-                p.addPoint(w - 15, 0);
+                p.addPoint(20, 0);
+                p.addPoint(w - 20, 0);
                 p.addPoint(w, h / 2);
-                p.addPoint(w - 15, h);
-                p.addPoint(15, h);
+                p.addPoint(w - 20, h);
+                p.addPoint(20, h);
                 p.addPoint(0, h / 2);
 
                 g2.setColor(new Color(0, 20, 40, 180));
@@ -230,42 +164,21 @@ public class PauseMenuFrame extends JFrame {
                 g2.setColor(baseColor);
                 g2.setStroke(new BasicStroke(2));
                 g2.drawPolygon(p);
-
-                // 🛑 حساب النص بطريقة مستقرة (Stable Text Centering)
-                FontMetrics fm = g2.getFontMetrics();
-                int textWidth = fm.stringWidth(getText()); // بيرجع int صحيح
-                int textHeight = fm.getAscent();
-
-                // حساب المركز بأرقام صحيحة لمنع الكسور
-                int x = (w - textWidth) / 2;
-                int y = (h + textHeight) / 2 - 2; // -2 لضبط البصري
-
-                g2.setColor(getForeground());
-                g2.drawString(getText(), x, y);
-
+                super.paintComponent(g);
                 g2.dispose();
             }
-
-            // منع وميض الخلفية
-            @Override
-            public void update(Graphics g) {
-                paint(g);
-            }
         };
-
-        // تثبيت أبعاد الزر عشان الـ Layout ميعملش Resize
-        Dimension size = new Dimension(250, 45);
-        btn.setPreferredSize(size);
-        btn.setMinimumSize(size);
-        btn.setMaximumSize(size);
 
         btn.setFocusPainted(false);
         btn.setOpaque(false);
         btn.setContentAreaFilled(false);
         btn.setBorderPainted(false);
         btn.setForeground(baseColor);
-        btn.setFont(new Font("Verdana", Font.BOLD, 16));
+        btn.setFont(new Font("Verdana", Font.BOLD, 18));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btn.setMaximumSize(new Dimension(280, 50));
+        btn.setPreferredSize(new Dimension(280, 50));
 
         btn.addMouseListener(new MouseAdapter() {
             @Override
@@ -280,13 +193,12 @@ public class PauseMenuFrame extends JFrame {
                 btn.repaint();
             }
         });
-
         return btn;
     }
 
-    // ============================
-    // >> Space Animation Logic <<
-    // ============================
+    // ==========================================
+    // Space Logic
+    // ==========================================
     private void updateSpace() {
         for (Star s : stars) {
             s.y += s.speed;
@@ -305,7 +217,7 @@ public class PauseMenuFrame extends JFrame {
         g2.fillOval(getWidth() / 2, getHeight() / 2, getWidth() / 2 + 100, getHeight() / 2 + 100);
         for (Star s : stars) {
             int alpha = (int) (s.z * 255);
-            alpha = Math.min(alpha, 255);
+            if (alpha > 255) alpha = 255;
             g2.setColor(new Color(255, 255, 255, alpha));
             double size = s.z * 2.5;
             g2.fillOval((int) s.x, (int) s.y, (int) size, (int) size);

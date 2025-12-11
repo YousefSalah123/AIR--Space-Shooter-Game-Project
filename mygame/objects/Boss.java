@@ -21,6 +21,20 @@ public class Boss extends GameObject {
     private int dieFrameCounter = 0;
     private int dieFrameDelay = 10;
     private int currentTextureOffset = 0;
+    // إحداثيات المدافع (Offsets) بالنسبة لجسم البوس
+    // إحداثيات المدافع (Offsets) معدلة لتناسب حجم البوس (120 - 160 - 200)
+
+    // المدفع الأيسر (حوالي ربع العرض)
+    private float gun1_OffsetX = 15;
+
+    // ارتفاع الفوهة (قريب من الصفر لأن البوس باصص لتحت، فالطلقة تخرج من أسفل جسمه)
+    private float gun1_OffsetY = 10;
+
+    // المدفع الأيمن (حوالي ثلاثة أرباع العرض)
+    private float gun2_OffsetX = 80;
+
+    // نفس ارتفاع المدفع الأول
+    private float gun2_OffsetY = 10;
 
     public Boss(float x, float y, int level) {
         super(x, y, 50, 50);
@@ -28,7 +42,7 @@ public class Boss extends GameObject {
 
         // إعدادات الصحة والأبعاد حسب المستوى
         if (level == 1) {
-            maxHealth = 200; width = 120; height = 120; moveSpeed = 2.0f;
+            maxHealth = 200; width = 150; height = 150; moveSpeed = 2.0f;
         } else if (level == 2) {
             maxHealth = 600; width = 160; height = 160; moveSpeed = 3.0f;
         } else {
@@ -71,82 +85,72 @@ public class Boss extends GameObject {
         if (isFiringLaser || isDying) return;
 
         long currentTime = System.currentTimeMillis();
-        int fireRate = 1000 - (level * 100);
+        // سرعة الضرب تعتمد على الليفل
+        int fireRate = 1200 - (level * 150);
 
         if (currentTime - lastShotTime > fireRate) {
-            bullets.add(new Bullet(x + width / 2, y, 0, -10, true,6));
+
+            // --- هنا السحر: إخراج الطلقة من فوهة المدفع المرسومة ---
+
+            // حساب الموقع الحقيقي للفوهة في الشاشة
+            // BossX + OffsetX
+            float spawnX_Left = x + gun1_OffsetX;
+            float spawnY      = y + gun1_OffsetY;
+
+            float spawnX_Right = x + gun2_OffsetX;
+
+            // إطلاق طلقتين من المدافع
+            // المعامل الأخير (textureIndex) هو صورة طلقة العدو (مثلاً 6)
+            bullets.add(new Bullet(spawnX_Left, spawnY, 0, -8, true, 6));
+            bullets.add(new Bullet(spawnX_Right, spawnY, 0, -8, true, 6));
+
+            // لو الليفل عالي (2 أو 3)، ممكن نضيف مدفع تالت في النص
             if (level >= 2) {
-                bullets.add(new Bullet(x, y, -3, -8, true,6));
-                bullets.add(new Bullet(x + width, y, 3, -8, true,6));
+                bullets.add(new Bullet(x + width / 2 - 7, y + height, 0, -10, true, 6));
             }
+
             lastShotTime = currentTime;
         }
     }
-
     @Override
     public void render(GL gl, int[] textures) {
-        if (isFiringLaser && level == 3 && !isDying) drawBossLaser(gl);
-
-        int textureIndex;
+        // 1. رسم الليزر (فقط في المستوى 3 وأثناء الحياة)
+        if (isFiringLaser && level == 3 && !isDying) {
+            drawBossLaser(gl);
+        }
 
         // ============================================================
-        // 1. تحديد نطاق صور كل بوس (البداية والنهاية) بناءً على GameListener
+        // 2. تحديد نطاق صور البوس بناءً على المستوى
         // ============================================================
-
         int myBossStartIndex;
         int myBossEndIndex;
 
         if (level == 1) {
-            // Boss 1: من 7 إلى 11
             myBossStartIndex = 7;
             myBossEndIndex   = 11;
-        } else if (level == 2) {
-            // Boss 2: من 12 إلى 18 (شامل صور Boss2.5)
-            myBossStartIndex = 12;
-            myBossEndIndex   = 18;
         } else {
-            // Boss 3 (مؤقتاً نعامله زي ليفل 2 لو ملوش صور خاصة)
+            // المستويات 2 و 3 (يستخدمون نفس الاندكس حسب الكود السابق)
             myBossStartIndex = 12;
             myBossEndIndex   = 18;
         }
 
+        int textureIndex;
+
         // ============================================================
-
+        // 3. منطق اختيار الصورة (حي vs ميت)
+        // ============================================================
         if (!isDying) {
-            // --- حالة الحياة (تغيير الشكل حسب الدمج) ---
+            // --- حالة الحياة ---
+            // يظل البوس على صورته الأولى (السليمة) ولا يتغير شكله مع نقص الصحة
+            textureIndex = textures[myBossStartIndex];
 
-            float hpPercent = (float) health / maxHealth;
-            int offset = 0;
-
-            // نحسب عدد الصور المتاحة لهذا البوس عشان نقسم الصحة عليهم
-            int totalImages = myBossEndIndex - myBossStartIndex + 1;
-
-            // معادلة ذكية: تحويل نسبة الصحة لرقم الصورة المناسب
-            // (1.0 - hpPercent) عشان كل ما الصحة تقل، الاندكس يزيد
-            // بنضرب في (totalImages - 1) عشان أخر صورة تكون للموت
-
-            // لكن للتبسيط وللحفاظ على اللوجيك القديم بتاعك (5 مراحل):
-            if (hpPercent > 0.80) offset = 0;
-            else if (hpPercent > 0.60) offset = 1;
-            else if (hpPercent > 0.40) offset = 2;
-            else if (hpPercent > 0.20) offset = 3;
-            else offset = (totalImages > 4) ? 4 : totalImages - 1; // نتأكد إننا منخرجش بره الحدود
-
-            // نضمن إننا مخرجناش عن حدود صور البوس
-            if (myBossStartIndex + offset > myBossEndIndex) {
-                textureIndex = textures[myBossEndIndex];
-            } else {
-                textureIndex = textures[myBossStartIndex + offset];
-            }
-
+            // لون طبيعي
             gl.glColor3f(1, 1, 1);
 
         } else {
-            // --- حالة الموت (تشغيل كل صور البوس ورا بعض) ---
-
-            // سرعة العرض (كل ما الرقم يقل، الجري يكون أسرع)
-            // ممكن تخليها 5 عشان يلحق يعرضهم كلهم بسرعة
-            int deathSpeed = 5;
+            // --- حالة الموت (Animation) ---
+            // هنا يتم تشغيل جميع الصور (من السليم للمدمر) كتسلسل انفجار
+            int deathSpeed = 5; // سرعة الأنيميشن (كل ما الرقم قل، بقى أسرع)
 
             dieFrameCounter++;
             if (dieFrameCounter > deathSpeed) {
@@ -154,44 +158,45 @@ public class Boss extends GameObject {
                 currentTextureOffset++;
             }
 
-            // حساب الصورة الحالية في الانيميشن
+            // حساب الصورة الحالية في شريط الانفجار
             int currentAnimIndex = myBossStartIndex + currentTextureOffset;
 
-            // لو وصلنا لآخر صورة للبوس، نوقف الأنيميشن ونخفيه
+            // التحقق من انتهاء الصور
             if (currentAnimIndex > myBossEndIndex) {
                 animationFinished = true;
-                // عشان ميعملش Crash نثبته على آخر صورة لحد ما يختفي
-                textureIndex = textures[myBossEndIndex];
+                textureIndex = textures[myBossEndIndex]; // الثبات على آخر صورة
             } else {
                 textureIndex = textures[currentAnimIndex];
             }
 
-            // إضافة لون أحمر خفيف أثناء الانهيار (اختياري)
-            gl.glColor3f(1.0f, 0.8f, 0.8f);
+            // تأثير لوني (أحمر خفيف) أثناء الانفجار
+            gl.glColor3f(1.0f, 0.7f, 0.7f);
         }
 
-        // الرسم النهائي
-        if (!animationFinished || isDying) {
-            // شرط إضافي: لو الانيميشن خلص (animationFinished = true) ميرسمش حاجة خالص
-            if (!animationFinished) {
-                drawTexture(gl, textureIndex, x, y, width, height);
-            }
+        // ============================================================
+        // 4. الرسم النهائي
+        // ============================================================
+
+        // رسم جسم البوس (إذا لم ينتهِ الانفجار)
+        if (!animationFinished) {
+            drawTexture(gl, textureIndex, x, y, width, height);
         }
 
-        // رسم البار فقط وهو عايش
-        gl.glColor3f(1, 1, 1); // إعادة اللون
-        if (!isDying) drawHealthBar(gl);
-    }
-
-    // --- التعديل الأساسي هنا ---
+        // رسم شريط الصحة (فقط إذا كان حياً)
+        // نعيد اللون للأبيض لضمان أن البار يظهر بألوانه الصحيحة
+        gl.glColor3f(1, 1, 1);
+        if (!isDying) {
+            drawHealthBar(gl);
+        }
+    }    // --- التعديل الأساسي هنا ---
     private void drawHealthBar(GL gl) {
         // 1. مهم جداً: إيقاف التكستشر عشان الألوان تظهر صح ومش سوداء
         gl.glDisable(GL.GL_TEXTURE_2D);
 
-        float barWidth = width;
-        float barHeight = 10;
+        float barWidth = width-5;
+        float barHeight = 13;
         float barX = x;
-        float barY = y + height + 10; // فوق البوس
+        float barY = y + height-27; // فوق البوس
 
         // 2. رسم الخلفية الحمراء (Full Width)
         gl.glColor3f(1.0f, 0.0f, 0.0f); // أحمر
@@ -234,24 +239,28 @@ public class Boss extends GameObject {
     private void drawBossLaser(GL gl) {
         gl.glDisable(GL.GL_TEXTURE_2D);
         gl.glEnable(GL.GL_BLEND);
-        gl.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA); // تأكد من تفعيل دالة الدمج للشفافية
+        gl.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA);
 
         Rectangle rect = getLaserBounds();
+        float topY = rect.y + rect.height; // أعلى الليزر (البوس)
+        float bottomY = 0;                 // أسفل الشاشة
 
-        gl.glColor4f(1.0f, 0.0f, 0.0f, 0.5f);
+        // --- الليزر الخارجي (Glow) ---
+        gl.glColor4f(1.0f, 0.6f, 0.6f, 0.6f); // أحمر فاتح شفاف
         gl.glBegin(GL.GL_QUADS);
-        gl.glVertex2f(rect.x - 10, rect.y);
-        gl.glVertex2f(rect.x + rect.width + 10, rect.y);
-        gl.glVertex2f(rect.x + rect.width + 10, 0);
-        gl.glVertex2f(rect.x - 10, 0);
+        gl.glVertex2f(rect.x - 10, topY);
+        gl.glVertex2f(rect.x + rect.width + 10, topY);
+        gl.glVertex2f(rect.x + rect.width + 10, bottomY);
+        gl.glVertex2f(rect.x - 10, bottomY);
         gl.glEnd();
 
-        gl.glColor4f(1.0f, 1.0f, 0.0f, 0.8f);
+        // --- الليزر الداخلي (Core) ---
+        gl.glColor4f(1.0f, 0.0f, 0.0f, 0.9f); // أحمر قوي
         gl.glBegin(GL.GL_QUADS);
-        gl.glVertex2f(rect.x + 10, rect.y);
-        gl.glVertex2f(rect.x + rect.width - 10, rect.y);
-        gl.glVertex2f(rect.x + rect.width - 10, 0);
-        gl.glVertex2f(rect.x + 10, 0);
+        gl.glVertex2f(rect.x + 3, topY);
+        gl.glVertex2f(rect.x + rect.width - 3, topY);
+        gl.glVertex2f(rect.x + rect.width - 3, bottomY);
+        gl.glVertex2f(rect.x + 3, bottomY);
         gl.glEnd();
 
         gl.glEnable(GL.GL_TEXTURE_2D);

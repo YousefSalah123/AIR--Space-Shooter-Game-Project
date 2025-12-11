@@ -6,26 +6,26 @@ public class Bullet extends GameObject {
 
     private final boolean isEnemyBullet;
     private float speedX = 0;
-    private int textureIndex; // <-- لازم المتغير ده يكون موجود
+    private int textureIndex;
 
-    // الكونستركتور لازم يستقبل الـ textureIndex
     public Bullet(float x, float y, float speedX, float speedY, boolean isEnemyBullet, int textureIndex) {
         super(x, y,
-                isEnemyBullet ? 15 : 30,  // العرض: لو عدو 15، لو لاعب 30 (أعرض)
-                isEnemyBullet ? 25 : 50   // الطول: لو عدو 25، لو لاعب 50 (أطول)
+                isEnemyBullet ? 15 : 30,  // العرض
+                isEnemyBullet ? 25 : 50   // الطول
         );
 
         this.speedX = speedX;
-        this.speed = speedY;
+        this.speed = speedY; // هنا speed تعبر عن speedY
         this.isEnemyBullet = isEnemyBullet;
         this.textureIndex = textureIndex;
     }
-
 
     @Override
     public void update() {
         y += speed;
         x += speedX;
+
+        // التحقق من الخروج عن حدود الشاشة (مع هامش صغير)
         if (y > 700 || y < -50 || x < -50 || x > 850) {
             setAlive(false);
         }
@@ -33,24 +33,34 @@ public class Bullet extends GameObject {
 
     @Override
     public void render(GL gl, int[] textures) {
+        // حماية: لا نرسم إذا كانت الطلقة ميتة
+        if (!isAlive) return;
+
         gl.glEnable(GL.GL_BLEND);
-        // استخدام رقم الصورة المخزن
         gl.glBindTexture(GL.GL_TEXTURE_2D, textures[textureIndex]);
 
-        gl.glPushMatrix(); // 1. حفظ الإحداثيات الحالية
+        gl.glPushMatrix();
 
-        // 2. نقل نقطة الرسم لمنتصف الرصاصة (عشان لما نلفها، تلف حوالين نفسها مش تطير بعيد)
-        // بنستخدم x و y الحالية + نصف العرض ونصف الطول
-        gl.glTranslated(x + width / 2, y + height / 2, 0);
+        // 1. نقل نقطة الرسم لمنتصف الطلقة (Pivot Point)
+        // هذا ضروري جداً لكي تدور الطلقة حول مركزها
+        float centerX = x + width / 2;
+        float centerY = y + height / 2;
+        gl.glTranslated(centerX, centerY, 0);
 
-        // 3. لو الرصاصة دي "طلقة عدو"، لفها 180 درجة
-        if (isEnemyBullet) {
-            gl.glRotated(180, 0, 0, 1); // الدوران حول محور Z
-        }
+        // 2. حساب زاوية الدوران ديناميكياً
+        // Math.atan2(y, x) تحسب الزاوية بالراديان بناءً على متجه الحركة
+        // نستخدم speed (التي تمثل Y) و speedX
+        double angleRad = Math.atan2(speed, speedX);
+        double angleDeg = Math.toDegrees(angleRad);
 
-        // 4. رسم الرصاصة
-        // ملحوظة مهمة: بما إننا عملنا Translate للمنتصف، يبقى لازم نرسم
-        // بحيث يكون (0,0) هو السنتر. يعني نبدأ من السالب للموجب.
+        // 3. تطبيق الدوران
+        // نطرح 90 درجة لأن الزاوية 0 في الرياضيات تشير لليمين،
+        // بينما صور الطلقات عادة ما تكون مرسومة وهي تشير للأعلى.
+        // (إذا كانت صورك مقلوبة، جرب +90 بدلاً من -90)
+        gl.glRotated(angleDeg - 90, 0, 0, 1);
+
+        // 4. رسم الطلقة
+        // بما أننا قمنا بـ Translate للمنتصف، نرسم المربع حول نقطة (0,0) الجديدة
         gl.glBegin(GL.GL_QUADS);
         gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2d(-width / 2, -height / 2);
         gl.glTexCoord2f(1.0f, 0.0f); gl.glVertex2d(width / 2, -height / 2);
@@ -58,7 +68,7 @@ public class Bullet extends GameObject {
         gl.glTexCoord2f(0.0f, 1.0f); gl.glVertex2d(-width / 2, height / 2);
         gl.glEnd();
 
-        gl.glPopMatrix(); // 5. استرجاع الإحداثيات عشان باقي اللعبة تترسم صح
+        gl.glPopMatrix();
         gl.glDisable(GL.GL_BLEND);
     }
 

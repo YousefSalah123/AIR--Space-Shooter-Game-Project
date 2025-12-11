@@ -1,4 +1,4 @@
-package mygame2.GUI;
+package com.mygame.GUI;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -79,11 +79,11 @@ public class GameCreditsFrame extends JFrame {
 
         // ===== بيانات الفريق =====
         List<Developer> developers = new ArrayList<>();
-        developers.add(new Developer("Ahmed Mostafa", "Game Structure", "Assets/avatars/avatar1.png", "https://github.com/mohamedahmed", "https://www.linkedin.com/in/hammadahmed289"));
-        developers.add(new Developer("Hammad Ahmed", "UI / GUI Designer", "Assets/avatars/avatar2.png", "https://github.com/hammadahmedx15-stack", "https://www.linkedin.com/in/hammadahmed289"));
-        developers.add(new Developer("Youssef Salah", "Game Structure", "Assets/avatars/avatar3.png", "https://github.com/YousefSalah123", "https://www.linkedin.com/in/yousef-salah-nage-a3583636b"));
-        developers.add(new Developer("Amr Mahmoud", "Game Structure", "Assets/avatars/avatar4.png", "https://github.com/Amr-Mahmoud293", "https://www.linkedin.com/in/amr-29-elbhar"));
-        developers.add(new Developer("Mostafa Eid", "Media Images , Sounds", "Assets/avatars/avatar5.png", "https://github.com/monaadel", "http://www.linkedin.com/in/mustafaeid412"));
+        developers.add(new Developer("Ahmed Mostafa", "Lead Developer", "Assets/avatars/avatar1.png", "https://github.com/mohamedahmed", "https://www.linkedin.com/in/mohamedahmed/"));
+        developers.add(new Developer("Hammad Ahmed", "UI / UX Designer", "Assets/avatars/avatar2.png", "https://github.com/hammadahmedx15-stack", "https://www.linkedin.com/in/hammadahmed289"));
+        developers.add(new Developer("Youssef Salah", "AI Systems Lead", "Assets/avatars/avatar3.png", "https://github.com/YousefSalah123", "https://www.linkedin.com/in/yousef-salah-nage-a3583636b"));
+        developers.add(new Developer("Amr Mahmoud", "Sound Engineer", "Assets/avatars/avatar4.png", "https://github.com/Amr-Mahmoud293", "https://www.linkedin.com/in/amr-29-elbhar"));
+        developers.add(new Developer("Mostafa Eid", "Quality Assurance", "Assets/avatars/avatar5.png", "https://github.com/monaadel", "http://www.linkedin.com/in/mustafaeid412"));
 
         // إعداد التخطيط
         int total = developers.size();
