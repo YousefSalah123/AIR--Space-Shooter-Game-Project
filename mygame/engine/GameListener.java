@@ -1,12 +1,14 @@
 package com.mygame.engine;
 
-import javax.media.opengl.*;
+import javax.media.opengl.GL;
+import javax.media.opengl.GLAutoDrawable;
+import javax.media.opengl.GLEventListener;
 import java.awt.event.*;
 
 public class GameListener implements GLEventListener, KeyListener {
 
     GameManager manager = new GameManager();
-    boolean[] keys = new boolean[256]; // لتخزين حالة الأزرار (حركة ناعمة)
+    boolean[] keys = new boolean[256];
 
     @Override
     public void init(GLAutoDrawable drawable) {
@@ -15,7 +17,7 @@ public class GameListener implements GLEventListener, KeyListener {
 
         gl.glMatrixMode(GL.GL_PROJECTION);
         gl.glLoadIdentity();
-        gl.glOrtho(0, 800, 0, 600, -1, 1); // إحداثيات الشاشة
+        gl.glOrtho(0, 800, 0, 600, -1, 1);
         gl.glMatrixMode(GL.GL_MODELVIEW);
     }
 
@@ -25,54 +27,35 @@ public class GameListener implements GLEventListener, KeyListener {
         gl.glClear(GL.GL_COLOR_BUFFER_BIT);
         gl.glLoadIdentity();
 
-        // 1. معالجة الإدخال (Dev B)
-        manager.player1.handleInput(keys);
+        // 1. نقل حالة الأزرار للاعب (للحركة السلسة)
+        manager.player.handleInput(keys);
 
-        // 2. تحديث المنطق (Dev A)
+        // 2. تحديث منطق اللعبة
         manager.update();
 
-        // 3. الرسم (الجميع)
+        // 3. رسم اللعبة
         manager.render(gl);
     }
 
-    // --- KeyListener ---
     @Override
     public void keyPressed(KeyEvent e) {
-        int code = e.getKeyCode();
-        if(code >= 0 && code < keys.length) {
-            keys[code] = true;
-        }
+        if(e.getKeyCode() < 256) keys[e.getKeyCode()] = true;
 
-        // Immediate movement when arrow keys or WASD are pressed
-        if(code == KeyEvent.VK_LEFT || code == KeyEvent.VK_A
-           || code == KeyEvent.VK_RIGHT || code == KeyEvent.VK_D
-           || code == KeyEvent.VK_UP || code == KeyEvent.VK_W
-           || code == KeyEvent.VK_DOWN || code == KeyEvent.VK_S) {
-
-            // Call handleInput now so movement is immediate (smooth movement still handled each frame)
-            manager.player1.handleInput(keys);
-        }
-
-        // إطلاق النار (ضغطة واحدة)
-        if(code == KeyEvent.VK_SPACE) {
-            manager.playerShoot();
-        }
-        e.getComponent().repaint();
-
+        // (تم حذف كود زر المسافة SPACE)
+        // الضرب الآن أوتوماتيكي بالكامل
     }
 
     @Override
     public void keyReleased(KeyEvent e) {
-        if(e.getKeyCode() >= 0 && e.getKeyCode() < keys.length) keys[e.getKeyCode()] = false;
+        if(e.getKeyCode() < 256) keys[e.getKeyCode()] = false;
+
+        // (تم حذف كود زر المسافة SPACE)
     }
 
     @Override
     public void keyTyped(KeyEvent e) { }
     @Override
     public void reshape(GLAutoDrawable arg0, int arg1, int arg2, int arg3, int arg4) { }
-
     @Override
-    public void displayChanged(GLAutoDrawable glAutoDrawable, boolean b, boolean b1) {
-
-    }
+    public void displayChanged(GLAutoDrawable arg0, boolean arg1, boolean arg2) { }
 }

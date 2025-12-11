@@ -8,7 +8,8 @@ public abstract class GameObject {
     // 1. Common Attributes
     protected float x, y;       // Position
     protected float speed;      // Movement speed
-    protected float width, height; // For collision & rendering
+    public float width;
+    protected float height; // For collision & rendering
     protected boolean isAlive = true; // If false, remove from game
 
     public GameObject(float x, float y, float width, float height) {
