@@ -1,123 +1,65 @@
-package mygame.objects;
+package com.mygame.objects;
+
 import javax.media.opengl.GL;
 
-/**
- * Enemy class represents all types of enemy objects.
- * Supports straight, wavy, and chaser behaviors.
- */
 public class Enemy extends GameObject {
 
-    public enum TypesOfEnemies {STRAIGHT, WAVY, CHASER}
+    public enum TypesOfEnemies {
+        STRAIGHT, CHASER, SQUAD_V, SQUAD_ENTER_LEFT, SQUAD_ENTER_RIGHT, CIRCLE_PATH
+    }
 
-    private TypesOfEnemies type;   // Enemy behavior type
-    private Player playerTarget;   // Target player for chaser behavior
+    private TypesOfEnemies type;
+    private Player playerTarget;
+    private float startX, startY;
+    private int timeAlive = 0;
 
-    // --- Wavy movement variables ---
-    private float startX; // Original horizontal position (wave center)
-    private float angle = 0; // Angle for sine wave calculation
-
-    /**
-     * Constructor initializes position, size, type, and target player
-     */
     public Enemy(float x, float y, float size, TypesOfEnemies type, Player player) {
         super(x, y, size, size);
         this.type = type;
         this.playerTarget = player;
         this.startX = x;
-
-        // Set speed based on enemy type
-        switch (type) {
-            case CHASER:
-                this.speed = 4.0f;
-                break;
-            case WAVY:
-                this.speed = 3.0f;
-                break;
-            case STRAIGHT:
-                this.speed = 2.0f;
-                break;
-        }
+        this.startY = y;
+        this.speed = 3.0f;
     }
 
-    /**
-     * Update enemy position based on type
-     * STRAIGHT: moves downward
-     * CHASER: moves downward + horizontally toward player
-     * WAVY: moves downward + oscillates horizontally
-     */
     @Override
     public void update() {
+        timeAlive++;
         switch (type) {
             case STRAIGHT:
+            case SQUAD_V:
                 y -= speed;
                 break;
             case CHASER:
                 y -= speed;
                 if (playerTarget != null) {
-                    if (x < playerTarget.getX()) x += 1.5f;
-                    if (x > playerTarget.getX()) x -= 1.5f;
+                    if (x < playerTarget.getX()) x += 2.0f;
+                    if (x > playerTarget.getX()) x -= 2.0f;
                 }
                 break;
-            case WAVY:
-                y -= speed;
-                angle += 0.05f;
-                x = startX + (float) (Math.sin(angle) * 80);
+            case SQUAD_ENTER_LEFT:
+                x += 3.0f;
+                y = startY - (timeAlive * 2.5f) + (float)(Math.sin(timeAlive * 0.02) * 30);
+                break;
+            case SQUAD_ENTER_RIGHT:
+                x -= 3.0f;
+                y = startY - (timeAlive * 2.5f) + (float)(Math.sin(timeAlive * 0.02) * 30);
+                break;
+            case CIRCLE_PATH:
+                y -= 2.0f;
+                x = startX + (float)(Math.sin(timeAlive * 0.02) * 80);
                 break;
         }
 
-        // Remove enemy if it goes off-screen
-        if (y < -50) setAlive(false);
+        if (y < -100 || x < -200 || x > 1000) setAlive(false);
     }
 
-    /**
-     * Render enemy on screen using different colors per type
-     */
     @Override
-    public void render(GL gl) {
-        switch (type) {
-            case STRAIGHT:
-                gl.glColor3f(1.0f, 0.0f, 0.0f);
-                break;       // Red
-            case CHASER:
-                gl.glColor3f(1.0f, 0.5f, 0.0f);
-                break;         // Orange
-            case WAVY:
-                gl.glColor3f(1.0f, 0.0f, 1.0f);
-                break;           // Magenta
-        }
-
-        // Draw enemy body
-        gl.glBegin(GL.GL_QUADS);
-        gl.glVertex2f(x, y);
-        gl.glVertex2f(x + width, y);
-        gl.glVertex2f(x + width, y + height);
-        gl.glVertex2f(x, y + height);
-        gl.glEnd();
-
-        // Draw simple eyes for enemy
-        gl.glColor3f(0, 0, 0);
-        gl.glBegin(GL.GL_QUADS);
-        // Left eye
-        gl.glVertex2f(x + 10, y + 10);
-        gl.glVertex2f(x + 15, y + 10);
-        gl.glVertex2f(x + 15, y + 20);
-        gl.glVertex2f(x + 10, y + 20);
-        // Right eye
-        gl.glVertex2f(x + width - 15, y + 10);
-        gl.glVertex2f(x + width - 10, y + 10);
-        gl.glVertex2f(x + width - 10, y + 20);
-        gl.glVertex2f(x + width - 15, y + 20);
-        gl.glEnd();
+    public void render(GL gl, int[] textures) {
+        // Texture Index 2 is Enemy ("3.png")
+        drawTexture(gl, textures[5], x, y, width, height);
     }
 
-    /**
-     * Small chance to fire a bullet (used by GameManager)
-     */
-    public boolean readyToFire() {
-        return Math.random() < 0.005;
-    }
-
-    public TypesOfEnemies getType() {
-        return type;
-    }
+    public boolean readyToFire() { return Math.random() < 0.003; }
+    public TypesOfEnemies getType() { return type; }
 }

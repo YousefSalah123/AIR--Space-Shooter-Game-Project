@@ -1,132 +1,84 @@
-package mygame.objects;
+package com.mygame.objects;
+
 import javax.media.opengl.GL;
 import java.awt.*;
 import java.util.ArrayList;
 
-/**
- * Boss class represents the main enemy boss in the game.
- * Each boss has multiple levels with increasing size, health, speed, and attacks.
- * Handles movement, shooting, laser attacks, health bar, and visual effects (eyes, rage state).
- */
 public class Boss extends GameObject {
 
-    private int health;        // Current health
-    private int maxHealth;     // Maximum health
-    private int level;         // Boss level (difficulty scaling)
-
-    // --- Movement Settings ---
+    private int health, maxHealth, level;
     private float moveSpeed = 2.0f;
-    private int direction = 1; // Horizontal movement direction
+    private int direction = 1;
 
-    // --- Laser Attack ---
-    public boolean isFiringLaser = false; // Is boss firing laser?
-    private long lastLaserTime = 0;       // Tracks laser activation
-    private boolean isLaserCoolingDown = false;
+    // منطق الليزر
+    public boolean isFiringLaser = false;
+    private long lastLaserTime = 0;
+    private long lastShotTime = 0;
 
-    // --- Bullet Shooting ---
-    private long lastShotTime = 0;        // Last time bullets were fired
+    // --- متغيرات الموت والأنيميشن ---
+    public boolean isDying = false;
+    public boolean animationFinished = false;
+    private int dieFrameCounter = 0;
+    private int dieFrameDelay = 10; // سرعة تبديل الصور (كل 10 فريمات صورة)
+    private int currentTextureOffset = 0; // للمساعدة في التنقل بين صور الانفجار
 
-    /**
-     * Constructor initializes boss with position and level.
-     * Boss properties (size, health, speed) scale with level.
-     */
     public Boss(float x, float y, int level) {
         super(x, y, 50, 50);
         this.level = level;
 
-        // Set boss attributes based on level
+        // إعدادات الصحة والأبعاد حسب المستوى
         if (level == 1) {
-            this.maxHealth = 200;
-            this.width = 80;
-            this.height = 80;
-            this.moveSpeed = 2.0f;
+            maxHealth = 200; width = 80; height = 80; moveSpeed = 2.0f;
         } else if (level == 2) {
-            this.maxHealth = 600;
-            this.width = 110;
-            this.height = 110;
-            this.moveSpeed = 3.0f;
+            maxHealth = 600; width = 110; height = 110; moveSpeed = 3.0f;
         } else {
-            this.maxHealth = 1200;
-            this.width = 150;
-            this.height = 150;
-            this.moveSpeed = 4.0f;
+            maxHealth = 1200; width = 150; height = 150; moveSpeed = 4.0f;
         }
-
         this.health = maxHealth;
     }
 
-    /**
-     * Update method handles boss logic every frame:
-     * - Horizontal movement (bouncing left/right)
-     * - Vertical shake (for level 3 boss)
-     * - Laser activation logic
-     * - Rage behavior if health is low
-     */
     @Override
     public void update() {
-        // --- 1. Movement ---
-        if (!isFiringLaser) {
-            float currentSpeed = (health < maxHealth / 2) ? moveSpeed * 1.5f : moveSpeed; // Enrage if low HP
-            x += currentSpeed * direction;
+        // إذا كان الزعيم يحتضر، توقف عن الحركة والمنطق
+        if (isDying) return;
 
-            // Bounce from screen edges
+        if (!isFiringLaser) {
+            float currentSpeed = (health < maxHealth / 2) ? moveSpeed * 1.5f : moveSpeed;
+            x += currentSpeed * direction;
             if (x > (800 - width) || x < 0) direction *= -1;
 
-            // Shake vertically
             float shakeAmount = (level == 3) ? 40 : 20;
             y = (600 - height - 50) + (float) Math.sin(System.currentTimeMillis() / 400.0) * shakeAmount;
         } else {
-            // Slight random shake while firing laser
+            // اهتزاز بسيط أثناء إطلاق الليزر
             x += (Math.random() * 6) - 3;
         }
 
-        // --- 2. Laser activation (level 3 boss only) ---
-        if (level == 3 && health < (maxHealth * 0.20)) {
-            manageLaserLogic();
-        } else {
-            isFiringLaser = false;
-        }
+        if (level == 3 && health < (maxHealth * 0.20)) manageLaserLogic();
+        else isFiringLaser = false;
     }
 
-    /**
-     * Handles laser firing logic, duration, and cooldown.
-     * Laser lasts for a set time, then enters cooldown before firing again.
-     */
     private void manageLaserLogic() {
         long currentTime = System.currentTimeMillis();
         int laserDuration = 100 + (level * 250);
         int cooldown = 2000 - (level * 100);
-
         if (isFiringLaser) {
-            if (currentTime - lastLaserTime > laserDuration) {
-                isFiringLaser = false;
-                isLaserCoolingDown = true;
-                lastLaserTime = currentTime;
-            }
+            if (currentTime - lastLaserTime > laserDuration) { isFiringLaser = false; lastLaserTime = currentTime; }
         } else {
-            if (currentTime - lastLaserTime > cooldown) {
-                isFiringLaser = true;
-                isLaserCoolingDown = false;
-                lastLaserTime = currentTime;
-                System.out.println("WARNING: BOSS " + level + " LASER!");
-            }
+            if (currentTime - lastLaserTime > cooldown) { isFiringLaser = true; lastLaserTime = currentTime; }
         }
     }
 
-    /**
-     * Boss shooting logic for bullets.
-     * Level determines the number of bullets and firing rate.
-     * Boss does not shoot while laser is active.
-     */
     public void shootLogic(ArrayList<Bullet> bullets) {
-        if (isFiringLaser) return;
+        // لا يطلق النار إذا كان يطلق الليزر أو إذا كان يموت
+        if (isFiringLaser || isDying) return;
 
         long currentTime = System.currentTimeMillis();
         int fireRate = 1000 - (level * 100);
 
         if (currentTime - lastShotTime > fireRate) {
-            bullets.add(new Bullet(x + width / 2, y, 0, -10, true)); // Middle shot
-            if (level >= 2) { // Side shots for higher levels
+            bullets.add(new Bullet(x + width / 2, y, 0, -10, true));
+            if (level >= 2) {
                 bullets.add(new Bullet(x, y, -3, -8, true));
                 bullets.add(new Bullet(x + width, y, 3, -8, true));
             }
@@ -134,154 +86,112 @@ public class Boss extends GameObject {
         }
     }
 
-    /**
-     * Renders boss on screen, including:
-     * - Body color based on health and level
-     * - Eyes and pupils (red when angry or laser firing)
-     * - Health bar above boss
-     * - Laser beam (for level 3)
-     */
     @Override
-    public void render(GL gl) {
-        if (isFiringLaser && level == 3) drawBossLaser(gl);
+    public void render(GL gl, int[] textures) {
+        // رسم الليزر فقط إذا لم يكن يموت
+        if (isFiringLaser && level == 3 && !isDying) drawBossLaser(gl);
 
-        // Change color based on health
-        if (health < maxHealth * 0.30) gl.glColor3f(1.0f, 0.0f, 0.0f);       // Red
-        else if (health < maxHealth * 0.50) gl.glColor3f(1.0f, 0.5f, 0.0f);  // Orange
-        else {
-            if (level == 1) gl.glColor3f(0.0f, 0.8f, 0.0f);      // Green
-            else if (level == 2) gl.glColor3f(0.0f, 0.0f, 1.0f); // Blue
-            else gl.glColor3f(0.6f, 0.0f, 0.8f);                 // Purple
+        // --- تحديد الصورة المناسبة للرسم ---
+        int textureIndex;
+
+        if (!isDying) {
+            // الحالة الطبيعية
+            // Level 1 uses index 7, Level 2+ uses index 12
+            textureIndex = (level == 1) ? textures[7] : textures[12];
+
+            // تغيير اللون للأحمر عند الغضب
+            if (health < maxHealth * 0.30) gl.glColor3f(1.0f, 0.5f, 0.5f);
+            else gl.glColor3f(1, 1, 1);
+
+        } else {
+            // حالة الموت (Animation)
+            gl.glColor3f(1, 1, 1); // إعادة اللون للأبيض
+            dieFrameCounter++;
+
+            if (dieFrameCounter > dieFrameDelay) {
+                dieFrameCounter = 0;
+                currentTextureOffset++; // ننتقل للصورة التالية
+            }
+
+            // حساب الـ Index بناءً على المصفوفة في GameListener
+            if (level == 1) {
+                // Boss 1 dying frames: 8, 9, 10, 11 (4 frames)
+                if (currentTextureOffset > 3) { // 0,1,2,3
+                    animationFinished = true;
+                    currentTextureOffset = 3; // نثبت على آخر صورة
+                }
+                textureIndex = textures[8 + currentTextureOffset];
+            } else {
+                // Boss 2 dying frames: 13, 14, 15, 16, 17, 18 (6 frames)
+                // نستخدم نفس صور Boss 2 للمستوى 3 أيضاً
+                if (currentTextureOffset > 5) { // 0..5
+                    animationFinished = true;
+                    currentTextureOffset = 5;
+                }
+                textureIndex = textures[13 + currentTextureOffset];
+            }
         }
 
-        // Draw boss body
-        gl.glBegin(GL.GL_QUADS);
-        gl.glVertex2f(x, y);
-        gl.glVertex2f(x + width, y);
-        gl.glVertex2f(x + width, y + height);
-        gl.glVertex2f(x, y + height);
-        gl.glEnd();
-
-        drawEyes(gl);
-        drawHealthBar(gl);
-    }
-
-    /**
-     * Draws boss eyes, changing pupil color when angry or firing laser
-     */
-    private void drawEyes(GL gl) {
-        gl.glColor3f(0, 0, 0); // Base eye color black
-        float eyeSize = width * 0.2f;
-        float eyeY = y + (height * 0.4f);
-
-        // Draw left and right eyes
-        gl.glBegin(GL.GL_QUADS);
-        // Left eye
-        gl.glVertex2f(x + (width * 0.2f), eyeY);
-        gl.glVertex2f(x + (width * 0.2f) + eyeSize, eyeY);
-        gl.glVertex2f(x + (width * 0.2f) + eyeSize, eyeY + eyeSize);
-        gl.glVertex2f(x + (width * 0.2f), eyeY + eyeSize);
-        // Right eye
-        gl.glVertex2f(x + width - (width * 0.2f) - eyeSize, eyeY);
-        gl.glVertex2f(x + width - (width * 0.2f), eyeY);
-        gl.glVertex2f(x + width - (width * 0.2f), eyeY + eyeSize);
-        gl.glVertex2f(x + width - (width * 0.2f) - eyeSize, eyeY + eyeSize);
-        gl.glEnd();
-
-        // Red pupils when angry or firing laser
-        boolean isAngry = (health < maxHealth * 0.30) || isFiringLaser;
-        if (isAngry) {
-            gl.glColor3f(1, 0, 0);
-            float pupilSize = eyeSize / 2;
-            gl.glBegin(GL.GL_QUADS);
-            // Left pupil
-            gl.glVertex2f(x + (width * 0.2f) + pupilSize / 2, eyeY + pupilSize / 2);
-            gl.glVertex2f(x + (width * 0.2f) + pupilSize * 1.5f, eyeY + pupilSize / 2);
-            gl.glVertex2f(x + (width * 0.2f) + pupilSize * 1.5f, eyeY + pupilSize * 1.5f);
-            gl.glVertex2f(x + (width * 0.2f) + pupilSize / 2, eyeY + pupilSize * 1.5f);
-            // Right pupil
-            gl.glVertex2f(x + width - (width * 0.2f) - pupilSize * 1.5f, eyeY + pupilSize / 2);
-            gl.glVertex2f(x + width - (width * 0.2f) - pupilSize / 2, eyeY + pupilSize / 2);
-            gl.glVertex2f(x + width - (width * 0.2f) - pupilSize / 2, eyeY + pupilSize * 1.5f);
-            gl.glVertex2f(x + width - (width * 0.2f) - pupilSize * 1.5f, eyeY + pupilSize * 1.5f);
-            gl.glEnd();
+        // رسم الزعيم
+        if (!animationFinished || isDying) {
+            drawTexture(gl, textureIndex, x, y, width, height);
         }
+
+        // إعادة ضبط اللون
+        gl.glColor3f(1, 1, 1);
+
+        // رسم شريط الصحة فقط إذا لم يكن يموت
+        if (!isDying) drawHealthBar(gl);
     }
 
-    /**
-     * Draws the boss laser beam for level 3 boss
-     */
     private void drawBossLaser(GL gl) {
-        float laserWidth = 20 + (level * 2);
-
         gl.glEnable(GL.GL_BLEND);
-        // Core white beam
-        gl.glColor4f(1.0f, 1.0f, 1.0f, 0.9f);
+        gl.glColor4f(1.0f, 0.0f, 0.0f, 0.8f);
+        Rectangle rect = getLaserBounds();
         gl.glBegin(GL.GL_QUADS);
-        float laserX = x + width / 2;
-        gl.glVertex2f(laserX - (laserWidth / 3), y);
-        gl.glVertex2f(laserX + (laserWidth / 3), y);
-        gl.glVertex2f(laserX + (laserWidth / 3), 0);
-        gl.glVertex2f(laserX - (laserWidth / 3), 0);
-        gl.glEnd();
-
-        // Glow red beam
-        gl.glColor4f(1.0f, 0.0f, 0.0f, 0.6f);
-        gl.glBegin(GL.GL_QUADS);
-        gl.glVertex2f(laserX - laserWidth, y);
-        gl.glVertex2f(laserX + laserWidth, y);
-        gl.glVertex2f(laserX + laserWidth, 0);
-        gl.glVertex2f(laserX - laserWidth, 0);
+        gl.glVertex2f(rect.x, rect.y);
+        gl.glVertex2f(rect.x + rect.width, rect.y);
+        gl.glVertex2f(rect.x + rect.width, 0); // يمتد لأسفل الشاشة
+        gl.glVertex2f(rect.x, 0);
         gl.glEnd();
         gl.glDisable(GL.GL_BLEND);
+        gl.glColor3f(1, 1, 1);
     }
 
-    /**
-     * Draws boss health bar above boss
-     */
     private void drawHealthBar(GL gl) {
-        float barWidth = width * 1.2f;
-        float barX = x - (width * 0.1f);
-        float healthPercent = (float) health / maxHealth;
+        float barWidth = width;
+        float barHeight = 10;
+        float barX = x;
+        float barY = y + height + 10;
 
-        // Background gray
-        gl.glColor3f(0.5f, 0.5f, 0.5f);
+        // الخلفية
+        gl.glColor3f(0.5f, 0.0f, 0.0f);
         gl.glBegin(GL.GL_QUADS);
-        gl.glVertex2f(barX, y + height + 10);
-        gl.glVertex2f(barX + barWidth, y + height + 10);
-        gl.glVertex2f(barX + barWidth, y + height + 15);
-        gl.glVertex2f(barX, y + height + 15);
+        gl.glVertex2f(barX, barY); gl.glVertex2f(barX + barWidth, barY);
+        gl.glVertex2f(barX + barWidth, barY + barHeight); gl.glVertex2f(barX, barY + barHeight);
         gl.glEnd();
 
-        // Green foreground
-        gl.glColor3f(0.0f, 1.0f, 0.0f);
+        // الصحة
+        float hpPercent = (float) health / maxHealth;
+        gl.glColor3f(1.0f, 0.0f, 0.0f);
         gl.glBegin(GL.GL_QUADS);
-        gl.glVertex2f(barX, y + height + 10);
-        gl.glVertex2f(barX + (barWidth * healthPercent), y + height + 10);
-        gl.glVertex2f(barX + (barWidth * healthPercent), y + height + 15);
-        gl.glVertex2f(barX, y + height + 15);
+        gl.glVertex2f(barX, barY); gl.glVertex2f(barX + (barWidth * hpPercent), barY);
+        gl.glVertex2f(barX + (barWidth * hpPercent), barY + barHeight); gl.glVertex2f(barX, barY + barHeight);
         gl.glEnd();
     }
 
-    /**
-     * Returns boss laser bounding rectangle for collision
-     */
     public Rectangle getLaserBounds() {
-        if (!isFiringLaser) return new Rectangle(0, 0, 0, 0);
-        float laserWidth = 20 + (level * 10);
-        return new Rectangle((int) (x + width / 2 - laserWidth), 0, (int) (laserWidth * 2), (int) y);
+        return (!isFiringLaser) ? new Rectangle(0,0,0,0) : new Rectangle((int)(x+width/2-30), 0, 60, (int)y);
     }
 
-    /**
-     * Reduces boss health when hit. If health <= 0, marks boss dead
-     */
     public void takeDamage() {
-        int damageAmount = 7; // Fixed damage for all levels
-        health -= damageAmount;
-        if (health <= 0) setAlive(false);
-    }
+        if (isDying) return; // لا يتضرر وهو يموت
 
-    public int getHealth() {
-        return health;
+        health -= 7;
+        if (health <= 0) {
+            isDying = true; // تفعيل الأنيميشن
+            health = 0;
+            // لا نضع setAlive(false) هنا، ننتظر انتهاء الأنيميشن
+        }
     }
 }

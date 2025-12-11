@@ -1,118 +1,157 @@
-package mygame.engine;
+package com.mygame.engine;
+
+import Texture.AnimListener;
+import Texture.TextureReader;
 import javax.media.opengl.GL;
 import javax.media.opengl.GLAutoDrawable;
 import javax.media.opengl.GLEventListener;
+import javax.media.opengl.glu.GLU;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.io.IOException;
 
-/**
- * GameListener is the core OpenGL event handler for the game.
- * Responsibilities:
- * 1. Handle rendering (drawing objects on screen)
- * 2. Handle game updates (via GameManager)
- * 3. Handle keyboard input for player controls
- */
-public class GameListener implements GLEventListener, KeyListener {
+public class GameListener extends AnimListener implements GLEventListener, KeyListener {
 
-    // The main game logic manager
     GameManager manager = new GameManager();
-
-    // Array to track key presses for smooth movement
     boolean[] keys = new boolean[256];
 
-    // -----------------------------
-    // 1. Initialization of OpenGL
-    // -----------------------------
-    @Override
-    public void init(GLAutoDrawable drawable) {
-        GL gl = drawable.getGL();
+    // تأكد أن أسماء الصور هنا تطابق تماماً الملفات الموجودة في فولدر Assets
+    String textureNames[] = {
+            "BackWar.png", // 0
+            "Hero.png", // 1
+            "Hero2.png",
+            "Hero3.png",
+            "Hero4.png",
+            "3.png",    // 2 enemy=>5
+            "4.png",    // 3 bullet=>6
+            "Boss1.png",// 4 Boss of level 1=>7
+            "Boss1.1.png",
+            "Boss1.2.png",
+            "Boss1.4.png",
+            "Boss1.6.png",
+            "Boss2.png",// 4 Boss of level 2=>12
+            "Boss2.1.png",
+            "Boss2.2.png",
+            "Boss2.3.png",
+            "Boss2.4.png",
+            "Boss2.5.png",
+            "Boss2.5.png",
+            "6.png",    // 5 item=>19
+            "7.png"     // 6 middle boss=>20
 
-        // Set the background color to black
-        gl.glClearColor(0, 0, 0, 1);
+    };
 
-        // Set up a 2D orthographic projection
+    TextureReader.Texture texture[] = new TextureReader.Texture[textureNames.length];
+    int textures[] = new int[textureNames.length];
+
+    public void init(GLAutoDrawable gld) {
+        GL gl = gld.getGL();
+        GLU glu = new GLU(); // نحتاجها لضبط الأبعاد
+
+        gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // لون الخلفية عند المسح
+
+        // --- 1. إعداد الكاميرا والأبعاد (الحل لمشكلة الأبعاد) ---
         gl.glMatrixMode(GL.GL_PROJECTION);
         gl.glLoadIdentity();
-        gl.glOrtho(0, 800, 0, 600, -1, 1); // left, right, bottom, top, near, far
+        // هذا السطر يخبر OpenGL أن الشاشة تبدأ من 0 وتنتهي عند 800 عرضاً و600 طولاً
+        glu.gluOrtho2D(0.0, 800.0, 0.0, 600.0);
+
         gl.glMatrixMode(GL.GL_MODELVIEW);
+        gl.glLoadIdentity();
+        // -----------------------------------------------------
+
+        gl.glEnable(GL.GL_TEXTURE_2D);
+        gl.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA);
+        gl.glGenTextures(textureNames.length, textures, 0);
+
+        for(int i = 0; i < textureNames.length; i++){
+            try {
+                // قراءة الصور من مجلد Assets
+                texture[i] = TextureReader.readTexture("Assets" + "//" + textureNames[i] , true);
+                gl.glBindTexture(GL.GL_TEXTURE_2D, textures[i]);
+                new GLU().gluBuild2DMipmaps(
+                        GL.GL_TEXTURE_2D, GL.GL_RGBA,
+                        texture[i].getWidth(), texture[i].getHeight(),
+                        GL.GL_RGBA, GL.GL_UNSIGNED_BYTE,
+                        texture[i].getPixels()
+                );
+            } catch( IOException e ) {
+                System.out.println("Error loading texture: " + textureNames[i]);
+                e.printStackTrace();
+            }
+        }
     }
 
-    // -----------------------------
-    // 2. Main render & update loop
-    // -----------------------------
     @Override
     public void display(GLAutoDrawable drawable) {
         GL gl = drawable.getGL();
-
-        // Clear the screen before drawing
         gl.glClear(GL.GL_COLOR_BUFFER_BIT);
         gl.glLoadIdentity();
 
-        // --- Update player input ---
-        manager.player.handleInput(keys); // Uses key array for smooth movement
+        // 1. رسم الخلفية
+        drawBackground(gl);
 
-        // --- Update game logic ---
-        manager.update(); // Moves bullets, enemies, bosses, items, etc.
+        // 2. تحديث اللعبة
+        manager.player.handleInput(keys);
+        manager.update();
 
-        // --- Draw everything ---
-        manager.render(gl); // Render player, enemies, bullets, items, boss, UI
+        // 3. رسم اللعبة (نمرر مصفوفة الصور)
+        manager.render(gl, textures);
     }
 
-    // -----------------------------
-    // 3. Handle key presses
-    // -----------------------------
+    public void drawBackground(GL gl){
+        gl.glEnable(GL.GL_BLEND);
+        gl.glBindTexture(GL.GL_TEXTURE_2D, textures[0]); // صورة الخلفية
+
+        gl.glPushMatrix();
+        gl.glBegin(GL.GL_QUADS);
+
+        // تعديل الإحداثيات لتملأ الشاشة (0,0) إلى (800,600)
+        // Texture Coordinates (0,0) -> Image Bottom-Left
+        // Vertex Coordinates (0,0) -> Screen Bottom-Left
+
+        gl.glTexCoord2f(0.0f, 0.0f);
+        gl.glVertex2f(0, 0); // Bottom-Left
+
+        gl.glTexCoord2f(1.0f, 0.0f);
+        gl.glVertex2f(800, 0); // Bottom-Right
+
+        gl.glTexCoord2f(1.0f, 1.0f);
+        gl.glVertex2f(800, 600); // Top-Right
+
+        gl.glTexCoord2f(0.0f, 1.0f);
+        gl.glVertex2f(0, 600); // Top-Left
+
+        gl.glEnd();
+        gl.glPopMatrix();
+        gl.glDisable(GL.GL_BLEND);
+    }
+
+    @Override
+    public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
+        // يمكن تركها فارغة لأننا ثبتنا الأبعاد في init
+    }
+
+    @Override
+    public void displayChanged(GLAutoDrawable drawable, boolean modeChanged, boolean deviceChanged) {}
+
     @Override
     public void keyPressed(KeyEvent e) {
-        // Mark the key as pressed in the array
         if (e.getKeyCode() < 256) keys[e.getKeyCode()] = true;
-
-        // --- Start game with ENTER ---
         if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-            if (!manager.isGameRunning) {
-                manager.isGameRunning = true; // Start the game!
-            }
+            if (!manager.isGameRunning) manager.isGameRunning = true;
         }
-
-        // --- Game controls (only active while game is running) ---
         if (manager.isGameRunning) {
-            if (e.getKeyCode() == KeyEvent.VK_Z) {
-                // Fire laser if not already active
-                if (!manager.player.isSpecialAttackActive) manager.fireLaser();
-            }
-            if (e.getKeyCode() == KeyEvent.VK_X) {
-                manager.activateShield(); // Activate shield manually
-            }
-            if (e.getKeyCode() == KeyEvent.VK_SPACE) {
-                manager.player.activateSpecialAttack(); // Trigger special attack
-            }
+            if (e.getKeyCode() == KeyEvent.VK_Z && !manager.player.isSpecialAttackActive) manager.fireLaser();
+            if (e.getKeyCode() == KeyEvent.VK_X) manager.activateShield();
+            if (e.getKeyCode() == KeyEvent.VK_SPACE) manager.player.activateSpecialAttack();
         }
     }
 
-    // -----------------------------
-    // 4. Handle key releases
-    // -----------------------------
     @Override
     public void keyReleased(KeyEvent e) {
         if (e.getKeyCode() < 256) keys[e.getKeyCode()] = false;
-
-        // Note: Removed SPACE key release logic to avoid conflicts
     }
-
     @Override
-    public void keyTyped(KeyEvent e) {
-        // Not used in this game (needed by KeyListener interface)
-    }
-
-    // -----------------------------
-    // 5. Window reshape (resize) event
-    // -----------------------------
-    @Override
-    public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
-        // Not used here, but required by GLEventListener
-    }
-
-    @Override
-    public void displayChanged(GLAutoDrawable drawable, boolean modeChanged, boolean deviceChanged) {
-        // Deprecated in modern JOGL, left empty
-    }
+    public void keyTyped(KeyEvent e) {}
 }

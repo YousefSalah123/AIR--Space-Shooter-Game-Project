@@ -1,73 +1,48 @@
-package mygame;
+package com.mygame;
 
+import com.mygame.engine.GameListener;
 import com.sun.opengl.util.FPSAnimator;
-import mygame.engine.GameListener;
 
 import javax.media.opengl.GLCanvas;
 import javax.swing.*;
 import java.awt.*;
 
-/**
- * Main Game Window (JFrame)
- * - Sets up OpenGL canvas
- * - Handles keyboard input
- * - Runs the game loop at fixed FPS using FPSAnimator
- */
 public class Game extends JFrame {
 
-    private GLCanvas glCanvas;         // OpenGL rendering canvas
-    private GameListener listener = new GameListener(); // Handles rendering & input
-    private FPSAnimator animator;      // Controls frame updates
+    private GLCanvas glCanvas;
+    private GameListener listener = new GameListener();
+    private FPSAnimator animator;
 
-    // Entry point of the game
     public static void main(String[] args) {
-        new Game();
+        // تشغيل اللعبة في الـ Event Dispatch Thread لضمان استقرار الواجهة
+        SwingUtilities.invokeLater(() -> new Game());
     }
 
-    // Constructor: sets up the JFrame and OpenGL canvas
     public Game() {
         super("Airplane Shooter 2D");
 
-        // Close the window properly when the user exits
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
-        // Window size (matches your glOrtho dimensions in GameManager)
         setSize(800, 600);
-
-        // Center the window on the screen
         setLocationRelativeTo(null);
-
-        // Use BorderLayout for easy placement of canvas
+        setResizable(false); // مهم: منع تغيير الحجم للحفاظ على أبعاد الصور
         setLayout(new BorderLayout());
 
-        // ---------------------------
-        // 1. Create OpenGL Canvas
-        // ---------------------------
+        // 1. إعداد الـ Canvas
         glCanvas = new GLCanvas();
 
-        // ---------------------------
-        // 2. Attach listener
-        // ---------------------------
-        glCanvas.addGLEventListener(listener); // Rendering logic
-        glCanvas.addKeyListener(listener);     // Keyboard input for player control
+        // 2. ربط الـ Listener
+        glCanvas.addGLEventListener(listener);
+        glCanvas.addKeyListener(listener);
 
-        // ---------------------------
-        // 3. Focus on the canvas
-        // ---------------------------
+        // 3. إعدادات التركيز (Focus) للكيبورد
         glCanvas.setFocusable(true);
-        glCanvas.requestFocusInWindow(); // Ensures keyboard input works immediately
+        glCanvas.requestFocusInWindow();
 
-        // ---------------------------
-        // 4. Add canvas to the JFrame
-        // ---------------------------
         add(glCanvas, BorderLayout.CENTER);
 
-        // Make the window visible
         setVisible(true);
 
-        // ---------------------------
-        // 5. Start the game loop (60 FPS)
-        // ---------------------------
+        // 4. تشغيل الـ Animator
         animator = new FPSAnimator(glCanvas, 60);
         animator.start();
     }
