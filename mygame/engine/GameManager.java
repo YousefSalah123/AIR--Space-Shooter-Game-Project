@@ -382,7 +382,7 @@ public class GameManager {
 
         // إعدادات المكان
         float startX = 15;
-        float startY = 20;
+        float startY = 40;
 
         // --- حل مشكلة المط ---
         // جرب تجعل الطول يساوي العرض (مربع) لترى الشكل الحقيقي للصورة
@@ -606,7 +606,7 @@ public class GameManager {
                 } else {
                     // --- حالة بدون درع ---
                     // اللاعب يتضرر (نستخدم الدالة الجديدة اللي فيها Cooldown)
-                    playerTakeDamage(5);
+                    playerTakeDamage(15);
 
                     // العدو يتضرر بشدة
                     me.setHealth(me.getHealth() - 100);
@@ -774,7 +774,7 @@ public class GameManager {
                 soundManager.playSound("explosion"); // صوت الانفجار
 
                 if (!player.isShieldActive) {
-                    playerTakeDamage(5);
+                    playerTakeDamage(8);
                     // اللاعب يتضرر
                 }
             }

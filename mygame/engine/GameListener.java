@@ -8,10 +8,12 @@ import javax.media.opengl.GLEventListener;
 import javax.media.opengl.glu.GLU;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.io.IOException;
 import java.util.Arrays;
 
-public class GameListener extends AnimListener implements GLEventListener, KeyListener {
+public class GameListener extends AnimListener implements GLEventListener, KeyListener , MouseListener {
     public GameListener(GameManager manager) {
         this.manager = manager;
     }
@@ -433,4 +435,28 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
         Arrays.fill(keys, false);
     }
 
+    @Override
+    public void mouseClicked(MouseEvent e) {
+
+    }
+
+    @Override
+    public void mousePressed(MouseEvent e) {
+        System.out.println(e.getX() + " " + e.getY());
+    }
+
+    @Override
+    public void mouseReleased(MouseEvent e) {
+
+    }
+
+    @Override
+    public void mouseEntered(MouseEvent e) {
+
+    }
+
+    @Override
+    public void mouseExited(MouseEvent e) {
+
+    }
 }
