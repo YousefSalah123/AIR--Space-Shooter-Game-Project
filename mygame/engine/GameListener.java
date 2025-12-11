@@ -30,6 +30,7 @@ public class GameListener implements GLEventListener, KeyListener {
         // 1. نقل حالة الأزرار للاعب (للحركة السلسة)
         manager.player.handleInput(keys);
 
+
         // 2. تحديث منطق اللعبة
         manager.update();
 
@@ -39,10 +40,20 @@ public class GameListener implements GLEventListener, KeyListener {
 
     @Override
     public void keyPressed(KeyEvent e) {
-        if(e.getKeyCode() < 256) keys[e.getKeyCode()] = true;
+        if (e.getKeyCode() < 256) keys[e.getKeyCode()] = true;
 
-        // (تم حذف كود زر المسافة SPACE)
-        // الضرب الآن أوتوماتيكي بالكامل
+        // --- زرار البداية (Enter) ---
+        if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+            if (!manager.isGameRunning) {
+                manager.isGameRunning = true; // ابدأ اللعبة!
+            }
+        }
+
+        // --- باقي التحكم (يشتغل بس لو اللعبة شغالة) ---
+        if (manager.isGameRunning) {
+            if (e.getKeyCode() == KeyEvent.VK_Z) manager.fireLaser();
+            if (e.getKeyCode() == KeyEvent.VK_X) manager.activateShield();
+        }
     }
 
     @Override
@@ -58,4 +69,5 @@ public class GameListener implements GLEventListener, KeyListener {
     public void reshape(GLAutoDrawable arg0, int arg1, int arg2, int arg3, int arg4) { }
     @Override
     public void displayChanged(GLAutoDrawable arg0, boolean arg1, boolean arg2) { }
+
 }

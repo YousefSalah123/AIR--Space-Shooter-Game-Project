@@ -5,11 +5,23 @@ import java.awt.Rectangle;
 
 // Abstract class to enforce OOP principles
 public abstract class GameObject {
+    public float getWidth() {
+        return width;
+    }
+
+    public float getHeight() {
+        return height;
+    }
+
+    public float getSpeed() {
+        return speed;
+    }
+
     // 1. Common Attributes
     protected float x, y;       // Position
     protected float speed;      // Movement speed
     public float width;
-    protected float height; // For collision & rendering
+    public float height; // For collision & rendering
     protected boolean isAlive = true; // If false, remove from game
 
     public GameObject(float x, float y, float width, float height) {

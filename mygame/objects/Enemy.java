@@ -1,81 +1,68 @@
 package com.mygame.objects;
 
 import javax.media.opengl.GL;
+import java.awt.Rectangle;
 
 public class Enemy extends GameObject {
 
-    // الأنواع: 0=عادي، 1=موجي، 2=مطارد (Chaser)
+    // 1: Normal (مستقيم), 2: Chaser (ملاحق), 3: Snake/Wave (موجة)
     private int type;
-    private float startX;
-    private long lastShotTime;
-    private float fireRate;
-    private Player target; // مرجعية للاعب عشان نعرف نطارده
+    private Player playerTarget;
 
-    // نعدل الـ Constructor ليستقبل اللاعب (target)
-    public Enemy(float x, float y, float size, int type, Player target) {
+    // متغيرات الحركة الموجية (للنوع 3)
+    private float startX; // نقطة الارتكاز الأفقية
+    private float angle = 0; // زاوية الموجة
+
+    public Enemy(float x, float y, float size, int type, Player player) {
         super(x, y, size, size);
-        this.startX = x;
         this.type = type;
-        this.target = target; // تخزين اللاعب كهدف
+        this.playerTarget = player;
+        this.startX = x; // حفظ مكان البداية
 
-        // المطارد يكون سريعاً قليلاً
-        this.speed = (type == 2) ? 4.0f : (2.0f + (float)Math.random() * 2.0f);
-
-        this.fireRate = 1000 + (float)Math.random() * 2000;
-        this.lastShotTime = System.currentTimeMillis();
+        // ضبط السرعة حسب النوع
+        if (type == 2) this.speed = 4.0f;      // الملاحق سريع
+        else if (type == 3) this.speed = 3.0f; // الموجة متوسطة
+        else this.speed = 2.0f;                // العادي بطيء
     }
 
     @Override
     public void update() {
-        // --- المنطق حسب النوع ---
+        // --- منطق الحركة ---
 
-        if (type == 2 && target != null && target.isAlive()) {
-            // === منطق المطاردة (Chaser Logic) ===
-            // 1. حساب المسافة بين العدو واللاعب
-            float dx = target.getX() - x;
-            float dy = target.getY() - y;
-
-            // 2. حساب طول المتجه (Hypotenuse)
-            float distance = (float)Math.sqrt(dx*dx + dy*dy);
-
-            // 3. التحرك نحو اللاعب (Normalization)
-            // (dx / distance) يعطينا الاتجاه (-1 إلى 1)
-            if (distance > 0) {
-                x += (dx / distance) * speed;
-                y += (dy / distance) * speed;
+        if (type == 1) {
+            // النوع 1: نزول مستقيم عادي
+            y -= speed;
+        }
+        else if (type == 2) {
+            // النوع 2: مطاردة اللاعب
+            y -= speed;
+            if (playerTarget != null) {
+                if (x < playerTarget.getX()) x += 1.5f;
+                if (x > playerTarget.getX()) x -= 1.5f;
             }
         }
-        else if (type == 1) {
-            // === منطق الموجة (Wavy) ===
-            y -= speed;
-            x = startX + 50 * (float)Math.sin(y * 0.05);
-        }
-        else {
-            // === منطق عادي (Straight) ===
-            y -= speed;
+        else if (type == 3) {
+            // النوع 3: حركة الثعبان (Sine Wave) 🐍
+            y -= speed; // ينزل لتحت
+            angle += 0.05f; // سرعة التمايل
+
+            // المعادلة: المركز + (سعة الموجة * جا الزاوية)
+            // 80 هو عرض الموجة (Amplitude)
+            x = startX + (float) (Math.sin(angle) * 80);
         }
 
-        if (y < -50) isAlive = false;
-    }
-
-    public boolean readyToFire() {
-        // المطارد لا يطلق النار (مشغول بالمطاردة) لتبسيط اللعبة
-        if (type == 2) return false;
-
-        long currentTime = System.currentTimeMillis();
-        if (currentTime - lastShotTime > fireRate) {
-            lastShotTime = currentTime;
-            return true;
-        }
-        return false;
+        // الموت عند الخروج من الشاشة
+        if (y < -50) setAlive(false);
     }
 
     @Override
     public void render(GL gl) {
-        if (type == 0) gl.glColor3f(0.8f, 0.2f, 0.2f); // أحمر (عادي)
-        else if (type == 1) gl.glColor3f(1.0f, 0.5f, 0.0f); // برتقالي (موجي)
-        else gl.glColor3f(0.8f, 0.0f, 0.8f); // بنفسجي (مطارد) !!!
+        // تمييز الألوان عشان نعرف الفرق
+        if (type == 1) gl.glColor3f(1.0f, 0.0f, 0.0f);      // أحمر (عادي)
+        else if (type == 2) gl.glColor3f(1.0f, 0.5f, 0.0f); // برتقالي (ملاحق)
+        else if (type == 3) gl.glColor3f(1.0f, 0.0f, 1.0f); // بنفسجي (موجة)
 
+        // رسم جسم العدو
         gl.glBegin(GL.GL_QUADS);
         gl.glVertex2f(x, y);
         gl.glVertex2f(x + width, y);
@@ -83,22 +70,22 @@ public class Enemy extends GameObject {
         gl.glVertex2f(x, y + height);
         gl.glEnd();
 
-        // (اختياري) رسم عينين للمطارد لبيان أنه "شرير"
-        if (type == 2) {
-            gl.glColor3f(1, 1, 1); // أبيض
-            float eyeSize = width / 4;
-            // عين يسرى
-            gl.glBegin(GL.GL_QUADS);
-            gl.glVertex2f(x + eyeSize, y + eyeSize);
-            gl.glVertex2f(x + 2*eyeSize, y + eyeSize);
-            gl.glVertex2f(x + 2*eyeSize, y + 2*eyeSize);
-            gl.glVertex2f(x + eyeSize, y + 2*eyeSize);
-            // عين يمنى
-            gl.glVertex2f(x + 2.5f*eyeSize, y + eyeSize);
-            gl.glVertex2f(x + 3.5f*eyeSize, y + eyeSize);
-            gl.glVertex2f(x + 3.5f*eyeSize, y + 2*eyeSize);
-            gl.glVertex2f(x + 2.5f*eyeSize, y + 2*eyeSize);
-            gl.glEnd();
-        }
+        // رسم تفاصيل (عيون)
+        gl.glColor3f(0, 0, 0);
+        gl.glBegin(GL.GL_QUADS);
+        gl.glVertex2f(x + 10, y + 10);
+        gl.glVertex2f(x + 15, y + 10);
+        gl.glVertex2f(x + 15, y + 20);
+        gl.glVertex2f(x + 10, y + 20);
+
+        gl.glVertex2f(x + width - 15, y + 10);
+        gl.glVertex2f(x + width - 10, y + 10);
+        gl.glVertex2f(x + width - 10, y + 20);
+        gl.glVertex2f(x + width - 15, y + 20);
+        gl.glEnd();
+    }
+
+    public boolean readyToFire() {
+        return Math.random() < 0.005;
     }
 }
