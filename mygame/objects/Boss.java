@@ -128,10 +128,15 @@ public class Boss extends GameObject {
         if (level == 1) {
             myBossStartIndex = 7;
             myBossEndIndex   = 11;
-        } else {
-            // المستويات 2 و 3 (يستخدمون نفس الاندكس حسب الكود السابق)
+        } else if (level == 2){
+            // المستويات 2
             myBossStartIndex = 12;
             myBossEndIndex   = 18;
+        }
+        else {
+            // المستوى 3
+            myBossStartIndex = 61;
+            myBossEndIndex   = 67;
         }
 
         int textureIndex;

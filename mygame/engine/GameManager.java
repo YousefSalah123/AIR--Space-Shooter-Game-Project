@@ -35,6 +35,8 @@ public class GameManager {
     private long lastAutoShotTime = 0;
     private int fireRate = 300;
     private long lastRandomSpawnTime = 0;
+    // Sound Manager
+    private SoundManager soundManager;
     
     public GameManager(Game game) {
         this.game = game;
@@ -43,6 +45,9 @@ public class GameManager {
         enemies = new ArrayList<>();
         bullets = new ArrayList<>();
         items = new ArrayList<>();
+        // Initialize Sound
+        soundManager = new SoundManager();
+        soundManager.playMusic();
     }
     public void update() {
         if (!isGameRunning) return; // إذا اللعبة متوقفة، تجاهل
@@ -59,7 +64,12 @@ public class GameManager {
             // إذا انتهى الأنيميشن بالكامل، نعلن انتهاء اللعبة
             if (player.animationFinished) {
                 player.setAlive(false);
-                gameOver = true;
+                // Fix: Play game over sound only once
+                if (!gameOver) {
+                    soundManager.stopMusic();
+                    soundManager.playSound("game_over");
+                    gameOver = true;
+                }
             }
             // لا نوقف التحديث بالكامل لكي يستمر رسم الأنيميشن،
             // لكن نمنع تحديث حركة اللاعب داخل الكلاس الخاص به
@@ -98,6 +108,7 @@ public class GameManager {
             item.update();
             if (player.getBounds().intersects(item.getBounds())) {
                 applyItem(item.getType());
+                soundManager.playSound("powerup"); // Sound Effect
                 items.remove(i);
             } else if (item.getY() < -50) items.remove(i);
         }
@@ -133,6 +144,7 @@ public class GameManager {
             if (currentTime - me.lastShotTime > me.shotDelay) {
                 if (me.type == 1) fireFanShots(me.x, me.y);
                 else fireHomingShot(me.x, me.y);
+                soundManager.playSound("enemy_laser"); // Sound Effect
                 me.lastShotTime = currentTime;
             }
             // تمت إزالة شرط (me.health <= 0) من هنا، سيتم التعامل معه في التصادمات
@@ -153,7 +165,10 @@ public class GameManager {
             // لو بيموت -> ما تخليهوش يضرب
             if (e.isDying) continue;
 
-            if (e.readyToFire()) enemyShootPattern(e);
+            if (e.readyToFire()){
+                enemyShootPattern(e);
+                soundManager.playSound("enemy_laser"); // Sound Effect
+            }
 
             // إزالة العدو لو خرج بره الشاشة (وليس بسبب الموت)
             if (!e.isAlive() && !e.isDying) enemies.remove(i);
@@ -278,44 +293,69 @@ public class GameManager {
         // 1. رسم بار الصحة الثابت
         drawHealthBarOnly(gl);
 
-        // 2. تفعيل الصور لرسم الأيقونات
+        // 2. تفعيل الصور والشفافية (حل مشكلة الخلفية السوداء)
         gl.glEnable(GL.GL_TEXTURE_2D);
+        gl.glEnable(GL.GL_BLEND);
+        // هذا السطر هو السحر لإخفاء الخلفية السوداء:
+        gl.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA);
 
-        float startX = 20;
+        // إعدادات المكان
+        float startX = 15;
         float startY = 20;
-        float iconSize = 40;
-        float padding = 10;
+
+        // --- حل مشكلة المط ---
+        // جرب تجعل الطول يساوي العرض (مربع) لترى الشكل الحقيقي للصورة
+        float iconWidth = 50;
+        float iconHeight = 40; // اجعلها مساوية للعرض مبدئياً
+        float padding = 7;
 
         // ---------------------------------------------------
-        // 1. أيقونة الليزر (زر Z) -> Index 41
+        // 1. أيقونة الليزر (Index 41)
         // ---------------------------------------------------
-        // التعديل: نستخدم المتغير المباشر بدلاً من الوقت
         if (player.canUseLaser) gl.glColor3f(1.0f, 1.0f, 1.0f); // منور
         else gl.glColor3f(0.3f, 0.3f, 0.3f);                    // مطفي
 
-        if (textures.length > 41) drawIcon(gl, textures[41], startX, startY, iconSize);
+        if (textures.length > 41) {
+            drawIcon(gl, textures[41], startX, startY, iconWidth, iconHeight);
+        }
 
         // ---------------------------------------------------
-        // 2. أيقونة الدرع (زر X) -> Index 42
+        // 2. أيقونة الدرع (Index 42)
         // ---------------------------------------------------
-        // التعديل: نستخدم المتغير المباشر
         if (player.canUseShield) gl.glColor3f(1.0f, 1.0f, 1.0f);
         else gl.glColor3f(0.3f, 0.3f, 0.3f);
 
-        if (textures.length > 42) drawIcon(gl, textures[42], startX + iconSize + padding, startY, iconSize);
+        float pos2 = startX + iconWidth + padding;
+        if (textures.length > 42) {
+            drawIcon(gl, textures[42], pos2, startY, iconWidth, iconHeight);
+        }
 
         // ---------------------------------------------------
-        // 3. أيقونة السوبر (زر Space) -> Index 43
+        // 3. أيقونة السوبر (Index 43)
         // ---------------------------------------------------
-        // التعديل: نستخدم المتغير المباشر
         if (player.canUseSuper) gl.glColor3f(1.0f, 1.0f, 1.0f);
         else gl.glColor3f(0.3f, 0.3f, 0.3f);
 
-        if (textures.length > 43) drawIcon(gl, textures[43], startX + (iconSize + padding) * 2, startY, iconSize);
+        float pos3 = startX + (iconWidth + padding) * 2;
+        if (textures.length > 43) {
+            drawIcon(gl, textures[43], pos3, startY, iconWidth, iconHeight);
+        }
 
-        // إعادة اللون للأبيض
+        // تنظيف الإعدادات
         gl.glColor3f(1, 1, 1);
-    }    private void drawIcon(GL gl, int textureId, float x, float y, float size) {
+        gl.glDisable(GL.GL_BLEND); // نوقف الدمج عشان مياثرش على اللي بعده غلط
+    }
+    private void drawIcon(GL gl, int textureId, float x, float y, float width, float height) {
+        gl.glBindTexture(GL.GL_TEXTURE_2D, textureId);
+        gl.glBegin(GL.GL_QUADS);
+        gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2f(x, y);
+        gl.glTexCoord2f(1.0f, 0.0f); gl.glVertex2f(x + width, y);
+        gl.glTexCoord2f(1.0f, 1.0f); gl.glVertex2f(x + width, y + height);
+        gl.glTexCoord2f(0.0f, 1.0f); gl.glVertex2f(x, y + height);
+        gl.glEnd();
+    }
+
+    private void drawIcon(GL gl, int textureId, float x, float y, float size) {
         gl.glBindTexture(GL.GL_TEXTURE_2D, textureId);
         gl.glBegin(GL.GL_QUADS);
         gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2f(x, y);
@@ -388,6 +428,7 @@ public class GameManager {
 
             // 1. جسم اللاعب ضد جسم العدو
             if (pRect.intersects(meRect)) {
+                soundManager.playSound("explosion");
                 if (player.isShieldActive) {
                     // --- حالة الدرع مفعل ---
                     // العدو يتضرر بشدة
@@ -417,6 +458,7 @@ public class GameManager {
                 if (me.getHealth() <= 0) {
                     me.setHealth(0);
                     me.startDeath();
+                    soundManager.playSound("explosion");
                 }
             }
 
@@ -430,6 +472,7 @@ public class GameManager {
                     if (me.getHealth() <= 0) {
                         me.setHealth(0);
                         me.startDeath();
+                        soundManager.playSound("explosion");
                     }
                 }
             }
@@ -446,7 +489,9 @@ public class GameManager {
                 if (!player.isShieldActive) {
                     // ضرر الليزر سريع، فممكن نستخدم health مباشرة أو playerTakeDamage لو عايز تقلل سرعة الموت
                     player.setHealth(player.getHealth() - 3);
-                    if (player.getHealth() <= 0) player.isDying = true;
+                    if (player.getHealth() <= 0) {player.isDying = true;
+                        soundManager.playSound("explosion");
+                    }
                 }
             }
 
@@ -458,7 +503,7 @@ public class GameManager {
             // 3. جسم اللاعب ضد جسم الزعيم
             if (pRect.intersects(bossRect)) {
                 player.setY(player.getY() - 30); // ارتداد
-
+                soundManager.playSound("explosion");
                 if (player.isShieldActive) {
                     boss.takeDamage();
                 } else {
@@ -489,6 +534,7 @@ public class GameManager {
                         score += 50;
                         spawnRandomItem(e.getX(), e.getY());
                         e.startDeath();
+                        soundManager.playSound("explosion");
                     }
                 }
             }
@@ -525,6 +571,7 @@ public class GameManager {
                                 score += 50;
                                 spawnRandomItem(e.getX(), e.getY());
                                 e.startDeath();
+                                soundManager.playSound("explosion");
                             }
                             break;
                         }
@@ -541,6 +588,7 @@ public class GameManager {
                         if (player.getHealth() <= 0) {
                             player.setHealth(0);
                             player.isDying = true;
+                            soundManager.playSound("explosion");
                         }
                     }
                 }
@@ -556,7 +604,7 @@ public class GameManager {
 
                 // العدو هيموت لأنه خبط في اللاعب
                 e.startDeath();
-
+                soundManager.playSound("explosion");
                 if (player.isShieldActive) {
                     score += 50;
                 } else {
@@ -573,6 +621,7 @@ public class GameManager {
             Item item = items.get(i);
             if (pRect.intersects(item.getBounds())) {
                 applyItem(item.getType());
+                soundManager.playSound("powerup");
                 items.remove(i);
                 i--;
             }
@@ -806,12 +855,22 @@ public class GameManager {
             bullets.add(new Bullet(sx, sy, -4, 14, false, playerBulletIndex));     // شمال
             bullets.add(new Bullet(sx, sy, 4, 14, false, playerBulletIndex));      // يمين
         }
-    }    public void fireLaser() { player.activateLaserBeam(); }
+        soundManager.playSound("player_laser");
+    }    public void fireLaser() {
+        if (player.canUseLaser && !player.isLaserBeamActive) {
+            player.activateLaserBeam();
+            soundManager.playSound("shield_active"); // Reusing shield sound or add specific laser sound
+        }
+    }
     public void activateShield() {
         // كان مكتوب player.activateShieldManual(); وده غلط
         // الصح:
         if (player != null && !player.isDying) {
-            player.activateShield(); // استدعاء دالة الـ Cooldown
+            if (player.canUseShield && !player.isShieldActive) {
+                player.activateShield();
+                soundManager.playSound("shield_active");
+            }
+            // استدعاء دالة الـ Cooldown
         }
     }
     private void drawPlayerPowerIndicators(GL gl) { float baseX = 20; float baseY = 20;

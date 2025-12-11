@@ -55,7 +55,7 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
             "Boss2.3.png",      // 15
             "Boss2.4.png",      // 16
             "Boss2.5.png",      // 17
-            "Boss2.5.png",      // 18
+            "Boss2.6.png",      // 18
             "heart.png",        // 19
             "enemy3.png",       // 20
             "enemy1.png",       // 21
@@ -67,10 +67,10 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
             "Shield.png",       // 27
 
             // --- صور خلفيات المستوى الأول (Start Index: 28) ---
-            "Space4.png", // 32
-            "Space4.png", // 33
-            "Space4.png",// 34
-            "Space4.png" , // 35
+            "L1.0.png", // 32
+            "L1.1.png", // 33
+            "L1.2.png",// 34
+            "L1.3.png" , // 35
 
             // --- صور خلفيات المستوى الثاني (Start Index: 32) ---
 
@@ -78,17 +78,17 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
             "B1.png", // 33
             "B3.png",// 34
             "B4.png" , // 35
-            "Lvl1_Part1.png", // 36
-            "Lvl1_Part1.png", // 37
-            "Lvl1_Part1.png", // 38
-            "Lvl1_Part1.png",  // 39
+            "L3.0.png", // 36
+            "L3.1.png", // 37
+            "L3.2.png", // 38
+            "L3.3.png",  // 39
 
 
             "bulletup.png",  // 40
             // --- أضف هذه الأيقونات في الآخر ---
-            "Balloon1.png",  // لنفترض أن ترتيبها أصب41
-            "Balloon1.png", // 42
-            "Balloon1.png",   // 43
+            "laserIcon.png",  // لنفترض أن ترتيبها أصب41
+            "ShieldICon.png", // 42
+            "bulletIcon.png",   // 43
             "numeralX.png", // 44
 
             // numbers (index : 40)
@@ -114,7 +114,17 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
 
             // Index 59, 60 -> Enemy 3 Death (للنوعين 20 و 23)
             "enemy3.1.png",
-            "enemy3.3.png"
+            "enemy3.3.png",
+
+            // Index 61, 62, 63, 64, 65, 66, 67 -> Boss Level 3
+            "Boss3.png",
+            "Boss3.1.png",
+            "Boss3.2.png",
+            "Boss3.3.png",
+            "Boss3.4.png",
+            "Boss3.5.png",
+            "Boss3.6.png"
+
     };
 
     TextureReader.Texture texture[] = new TextureReader.Texture[textureNames.length];
