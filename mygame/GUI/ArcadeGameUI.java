@@ -20,8 +20,9 @@ public class ArcadeGameUI extends JFrame {
     private Font gameFont;
     private JPanel highScoresPanel;
     private GameCredits creditsPanel;
+    private Game game;
 
-    public ArcadeGameUI() {
+    public ArcadeGameUI(Game game) {
         setTitle("Arcade Air Mission");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(900, 600);
@@ -36,7 +37,6 @@ public class ArcadeGameUI extends JFrame {
         // Initialize Panels
         JPanel mainMenu = createMainMenuPanel();
         JPanel singlePlayer = createSinglePlayerPanel();
-        JPanel multiPlayer = createMultiPlayerPanel();
         JPanel instructions = createInstructionsPanel();
         highScoresPanel = createHighScoresPanel();
 
@@ -45,12 +45,13 @@ public class ArcadeGameUI extends JFrame {
         // Add to CardLayout
         mainPanel.add(mainMenu, "MainMenu");
         mainPanel.add(singlePlayer, "SinglePlayer");
-        mainPanel.add(multiPlayer, "MultiPlayer");
         mainPanel.add(instructions, "Instructions");
         mainPanel.add(highScoresPanel, "HighScores");
         mainPanel.add(creditsPanel, "Credits");
 
         add(mainPanel);
+
+        this.game = game;
     }
 
     private void loadGameFont() {
@@ -142,6 +143,8 @@ public class ArcadeGameUI extends JFrame {
     // باقي الكود كما هو
     // ==========================================
 
+    // داخل كلاس ArcadeGameUI.java
+
     private JPanel createMainMenuPanel() {
         ImageIcon bgIcon = new ImageIcon(getClass().getResource("Assets//background3.png"));
         Image bgImage = bgIcon.getImage();
@@ -169,15 +172,17 @@ public class ArcadeGameUI extends JFrame {
         title.setFont(gameFont.deriveFont(36f));
         title.setBorder(BorderFactory.createEmptyBorder(40, 0, 30, 0));
 
-        JButton btnSingle = createGameButton("SINGLE PLAYER");
-        JButton btnMulti = createGameButton("MULTIPLAYER");
+        JButton btnSingle = createGameButton("PLAY");
         JButton btnScores = createGameButton("HIGH SCORES");
         JButton btnInstr = createGameButton("INSTRUCTIONS");
         JButton btnCredits = createGameButton("CREDITS");
+
+        // ⭐⭐ الزر الجديد لكتم/تشغيل الصوت ⭐⭐
+        JButton btnMute = createGameButton("SOUND");
+
         JButton btnExit = createGameButton("EXIT");
 
         btnSingle.addActionListener(e -> cardLayout.show(mainPanel, "SinglePlayer"));
-        btnMulti.addActionListener(e -> cardLayout.show(mainPanel, "MultiPlayer"));
         btnScores.addActionListener(e -> {
             mainPanel.remove(highScoresPanel);
             highScoresPanel = createHighScoresPanel();
@@ -189,6 +194,13 @@ public class ArcadeGameUI extends JFrame {
             creditsPanel.resetAnimations();
             cardLayout.show(mainPanel, "Credits");
         });
+
+        // ⭐⭐ إجراء الزر الجديد (يجب ربطه بمنطق الصوت الفعلي) ⭐⭐
+        btnMute.addActionListener(e -> {
+            game.toggleSound();
+            System.out.println("Sound toggle requested.");
+        });
+
         btnExit.addActionListener(e -> System.exit(0));
 
         JPanel buttonsPanel = new JPanel();
@@ -196,13 +208,13 @@ public class ArcadeGameUI extends JFrame {
         buttonsPanel.setLayout(new BoxLayout(buttonsPanel, BoxLayout.Y_AXIS));
         buttonsPanel.add(btnSingle);
         buttonsPanel.add(Box.createVerticalStrut(15));
-        buttonsPanel.add(btnMulti);
-        buttonsPanel.add(Box.createVerticalStrut(15));
         buttonsPanel.add(btnScores);
         buttonsPanel.add(Box.createVerticalStrut(15));
-        buttonsPanel.add(btnInstr);
+        buttonsPanel.add(btnMute);
         buttonsPanel.add(Box.createVerticalStrut(15));
         buttonsPanel.add(btnCredits);
+        buttonsPanel.add(Box.createVerticalStrut(15));
+        buttonsPanel.add(btnInstr);
         buttonsPanel.add(Box.createVerticalStrut(15));
         buttonsPanel.add(btnExit);
 
@@ -283,95 +295,9 @@ public class ArcadeGameUI extends JFrame {
         return panel;
     }
 
-    private JPanel createMultiPlayerPanel() {
-        ImageIcon bgIcon = new ImageIcon(getClass().getResource("Assets//backgroundEnterInfo2.png"));
-        Image bgImage = bgIcon.getImage();
-
-        JPanel panel = new JPanel() {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                if (bgImage != null) g.drawImage(bgImage, 0, 0, getWidth(), getHeight(), this);
-                g.setColor(new Color(0, 0, 30, 120));
-                g.fillRect(0, 0, getWidth(), getHeight());
-            }
-        };
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setOpaque(false);
-
-        JLabel p1 = new JLabel("PLAYER 1 NAME:");
-        JLabel p2 = new JLabel("PLAYER 2 NAME:");
-        p1.setForeground(Color.CYAN);
-        p2.setForeground(Color.CYAN);
-        p1.setFont(gameFont);
-        p2.setFont(gameFont);
-
-        FancyTextField tf1 = new FancyTextField(15);
-        FancyTextField tf2 = new FancyTextField(15);
-        tf1.setMaximumSize(new Dimension(220, 35));
-        tf2.setMaximumSize(new Dimension(220, 35));
-
-        JLabel keys = new JLabel("P1 → ARROWS   |   P2 → W A S D");
-        keys.setForeground(Color.YELLOW);
-        keys.setAlignmentX(Component.CENTER_ALIGNMENT);
-        keys.setFont(new Font("Monospaced", Font.BOLD, 16));
-
-        JButton start = createGameButton("START CO-OP");
-        JButton back = createGameButton("BACK");
-
-        start.addActionListener(e -> {
-            String player1 = tf1.getText().trim();
-            String player2 = tf2.getText().trim();
-
-            if (player1.isEmpty() || player2.isEmpty()) {
-                showCustomWarning("BOTH PILOTS MUST IDENTIFY!");
-                return;
-            }
-
-            JPanel gamePanel = createGamePanel(true);
-            mainPanel.add(gamePanel, "GamePanel");
-            cardLayout.show(mainPanel, "GamePanel");
-        });
-
-        back.addActionListener(e -> cardLayout.show(mainPanel, "MainMenu"));
-
-        panel.add(Box.createVerticalGlue());
-        JPanel player1Panel = new JPanel();
-        player1Panel.setLayout(new BoxLayout(player1Panel, BoxLayout.Y_AXIS));
-        player1Panel.setOpaque(false);
-        player1Panel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        p1.setAlignmentX(Component.CENTER_ALIGNMENT);
-        tf1.setAlignmentX(Component.CENTER_ALIGNMENT);
-        player1Panel.add(p1);
-        player1Panel.add(Box.createVerticalStrut(5));
-        player1Panel.add(tf1);
-
-        JPanel player2Panel = new JPanel();
-        player2Panel.setLayout(new BoxLayout(player2Panel, BoxLayout.Y_AXIS));
-        player2Panel.setOpaque(false);
-        player2Panel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        p2.setAlignmentX(Component.CENTER_ALIGNMENT);
-        tf2.setAlignmentX(Component.CENTER_ALIGNMENT);
-        player2Panel.add(p2);
-        player2Panel.add(Box.createVerticalStrut(5));
-        player2Panel.add(tf2);
-
-        panel.add(player1Panel);
-        panel.add(Box.createVerticalStrut(15));
-        panel.add(player2Panel);
-        panel.add(Box.createVerticalStrut(15));
-        panel.add(keys);
-        panel.add(Box.createVerticalStrut(20));
-        panel.add(start);
-        panel.add(Box.createVerticalStrut(10));
-        panel.add(back);
-        panel.add(Box.createVerticalGlue());
-
-        return panel;
-    }
 
     private JPanel createInstructionsPanel() {
-        ImageIcon instIcon = new ImageIcon(getClass().getResource("Assets//instruction3.png"));
+        ImageIcon instIcon = new ImageIcon(getClass().getResource("Assets//instruction.png"));
         Image instImage = instIcon.getImage();
 
         JPanel panel = new JPanel(new BorderLayout()) {
@@ -392,12 +318,6 @@ public class ArcadeGameUI extends JFrame {
         bottomPanel.add(back, BorderLayout.WEST);
         bottomPanel.setBorder(BorderFactory.createEmptyBorder(0, 10, 10, 0));
 
-        JLabel info = new JLabel("USE ARROWS TO MOVE - SPACE TO FIRE - ESC TO EXIT");
-        info.setForeground(Color.CYAN);
-        info.setFont(new Font("Monospaced", Font.BOLD, 18));
-        info.setHorizontalAlignment(SwingConstants.CENTER);
-
-        panel.add(info, BorderLayout.NORTH);
         panel.add(bottomPanel, BorderLayout.SOUTH);
 
         return panel;
@@ -622,9 +542,5 @@ public class ArcadeGameUI extends JFrame {
             g2.dispose();
             super.paintComponent(g);
         }
-    }
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new ArcadeGameUI().setVisible(true));
     }
 }
