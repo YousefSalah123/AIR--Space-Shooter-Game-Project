@@ -1,12 +1,19 @@
 package mygame;
-import mygame.GUI.*;
+
+import com.sun.opengl.util.FPSAnimator;
+import mygame.GUI.ArcadeGameUI;
+import mygame.GUI.EndLevelFrame;
+import mygame.GUI.GameHUD;
+import mygame.GUI.PauseMenuFrame;
 import mygame.engine.GameListener;
 import mygame.engine.GameManager;
-import com.sun.opengl.util.FPSAnimator;
+import mygame.engine.HighScoreManagment;
+import mygame.objects.Player;
 
 import javax.media.opengl.GLCanvas;
 import javax.swing.*;
 import java.awt.*;
+
 
 public class Game extends JFrame {
 
@@ -16,102 +23,147 @@ public class Game extends JFrame {
     private ArcadeGameUI mainMenu;
     private GameManager manager;
 
+    // ⭐ سيتم تخزين اسم اللاعب هنا
+    private static String playerName = "UNKNOWN";
+
+    public static String getPlayerName() {
+        return playerName;
+    }
+
+    public static void setPlayerName(String name) {
+        Game.playerName = name;  // ← ← ← التصحيح هنا
+    }
+
     public static void main(String[] args) {
-        // تشغيل اللعبة في الـ Event Dispatch Thread لضمان استقرار الواجهة
-        SwingUtilities.invokeLater(() -> new Game());
+        SwingUtilities.invokeLater(Game::new);
     }
 
     public Game() {
-        super("Airplane Shooter 2D");
-
+        super("Galactic Air Mission");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(800, 600);
         setLocationRelativeTo(null);
         setResizable(false);
         setLayout(new BorderLayout());
 
-        // 1. أولاً: تهيئة المنطق والـ Listener (لتجنب NullPointer)
         manager = new GameManager(this);
         listener = new GameListener(manager);
 
-        // 2. ثانياً: إعداد الـ Canvas وربط الـ Listener
         glCanvas = new GLCanvas();
         glCanvas.addGLEventListener(listener);
         glCanvas.addKeyListener(listener);
-
-        // إعدادات التركيز لضمان عمل الكيبورد
         glCanvas.setFocusable(true);
-        glCanvas.requestFocusInWindow();
-
-        // إضافة الـ Canvas للنافذة
         add(glCanvas, BorderLayout.CENTER);
 
-        // 3. ثالثاً: إعداد الـ Animator (لكن لا نبدأه الآن)
         animator = new FPSAnimator(glCanvas, 60);
 
-
-        // 4. إظهار القائمة الرئيسية فور التشغيل
         showMainMenu();
+
     }
 
     public void showMainMenu() {
-        // إخفاء نافذة اللعبة (الـ Canvas)
         this.setVisible(false);
 
-        // إيقاف اللعبة مؤقتاً إذا كانت تعمل في الخلفية
-        if (animator.isAnimating()) {
-            animator.stop();
-        }
+        if (animator.isAnimating()) animator.stop();
 
         mainMenu = new ArcadeGameUI();
 
-        // ربط زر "Start Game" في القائمة ببدء اللعبة الفعلية
+        // ⭐ عند البدء.. (ArcadeGameUI سوف تستدعي Game.setPlayerName)
         mainMenu.setStartGameAction(e -> startActualGame());
 
         mainMenu.setVisible(true);
     }
 
     public void startActualGame() {
-        // إخفاء القائمة الرئيسية
-        mainMenu.setVisible(false);
+        if (mainMenu != null) mainMenu.setVisible(false);
 
-        // إظهار نافذة اللعبة
-        this.setVisible(true);
-
-        // إعادة التركيز للكيبورد
-        glCanvas.requestFocusInWindow();
-
-        // إعادة تهيئة بيانات اللعبة (Scores, Health, etc.)
         manager.resetGame();
 
-        // بدء حلقة الرسم (Game Loop)
-        if (!animator.isAnimating()) {
-            animator.start();
-        }
+        this.setVisible(true);
+
+        glCanvas.requestFocusInWindow();
+
+        if (!animator.isAnimating()) animator.start();
     }
 
-    // يتم استدعاء هذه الدالة من GameManager عند انتهاء اللعبة
+    /**
+     * يتم استدعاؤها عند انتهاء الجولة
+     */
     public void handleGameOver(boolean victory, int score) {
-        // إيقاف الرسم
-        animator.stop();
 
-        // استخدام مصفوفة لتمرير المتغير للـ Lambda (لحل مشكلة المتغيرات النهائية)
+        if (animator.isAnimating()) animator.stop();
+
+        this.setVisible(false);
+
         final EndLevelFrame[] holder = new EndLevelFrame[1];
 
         holder[0] = new EndLevelFrame(
                 victory,
                 score,
-                e -> {                      // زر Retry
-                    holder[0].dispose();    // إغلاق نافذة النهاية
-                    startActualGame();      // بدء اللعبة من جديد
+                e -> {  // Retry
+                    holder[0].dispose();
+                    startActualGame();
                 },
-                e -> {                      // زر Main Menu
-                    holder[0].dispose();    // إغلاق نافذة النهاية
-                    this.setVisible(false); // إخفاء نافذة اللعبة
-                    showMainMenu();         // العودة للقائمة
+                e -> {  // Back to Menu
+                    holder[0].dispose();
+                    showMainMenu();
+                    HighScoreManagment.addScore(getPlayerName(), manager.score);
                 }
         );
 
         holder[0].setVisible(true);
+    }
+
+    public void togglePause() {
+        if (animator.isAnimating()) animator.stop();
+
+        // استخدام مصفوفة للتحايل على الـ Final variable
+        // تأكد من عمل Import صحيح لـ PauseMenuFrame حسب الباكيج عندك
+        final mygame.GUI.PauseMenuFrame[] menuHolder = new mygame.GUI.PauseMenuFrame[1];
+
+        menuHolder[0] = new mygame.GUI.PauseMenuFrame(
+                // 1. Resume
+                e -> {
+                    menuHolder[0].dispose();
+                    listener.resetKeys();
+                    if (!animator.isAnimating()) animator.start();
+                    glCanvas.requestFocusInWindow();
+                },
+                // 2. Restart
+                e -> {
+                    menuHolder[0].dispose();
+                    listener.resetKeys();
+
+                    // لو عدت اللعبة والصوت مكتوم، ممكن تسيبه مكتوم أو تشغله حسب رغبتك
+                    // هنا سيبه زي ما هو
+
+                    startActualGame();
+                },
+                // 3. Back to Menu (هنا الإصلاح)
+                e -> {
+                    menuHolder[0].dispose();
+                    listener.resetKeys();
+
+                    // --- لو الصوت مكتوم، شغله تاني قبل ما ترجع للقائمة ---
+                    if (mygame.GUI.PauseMenuFrame.isMuted) {
+                        toggleSound(); // اعكس الحالة في SoundManager
+                        mygame.GUI.PauseMenuFrame.isMuted = false; // اعكس الأيقونة في الـ GUI
+                    }
+
+                    this.setVisible(false);
+                    showMainMenu();
+                },
+                // 4. Toggle Sound
+                e -> toggleSound()
+        );
+
+        menuHolder[0].setVisible(true);
+    }
+    // دالة لتبديل حالة الصوت (ON/OFF)
+    public void toggleSound() {
+        // نستدعي الدالة الموجودة في SoundManager عبر الـ manager
+        if (manager != null && manager.soundManager != null) {
+            manager.soundManager.toggleMute();
+        }
     }
 }

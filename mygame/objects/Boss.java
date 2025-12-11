@@ -1,12 +1,15 @@
 package mygame.objects;
 
+import mygame.engine.SoundManager;
 import javax.media.opengl.GL;
 import java.awt.*;
 import java.util.ArrayList;
 
 public class Boss extends GameObject {
 
-    private int health, maxHealth, level;
+    public int health;
+    private int maxHealth;
+    private int level;
     private float moveSpeed = 2.0f;
     private int direction = 1;
 
@@ -21,20 +24,6 @@ public class Boss extends GameObject {
     private int dieFrameCounter = 0;
     private int dieFrameDelay = 10;
     private int currentTextureOffset = 0;
-    // إحداثيات المدافع (Offsets) بالنسبة لجسم البوس
-    // إحداثيات المدافع (Offsets) معدلة لتناسب حجم البوس (120 - 160 - 200)
-
-    // المدفع الأيسر (حوالي ربع العرض)
-    private float gun1_OffsetX = 15;
-
-    // ارتفاع الفوهة (قريب من الصفر لأن البوس باصص لتحت، فالطلقة تخرج من أسفل جسمه)
-    private float gun1_OffsetY = 10;
-
-    // المدفع الأيمن (حوالي ثلاثة أرباع العرض)
-    private float gun2_OffsetX = 80;
-
-    // نفس ارتفاع المدفع الأول
-    private float gun2_OffsetY = 10;
 
     public Boss(float x, float y, int level) {
         super(x, y, 50, 50);
@@ -81,32 +70,52 @@ public class Boss extends GameObject {
         }
     }
 
-    public void shootLogic(ArrayList<Bullet> bullets) {
+    public void shootLogic(ArrayList<Bullet> bullets, SoundManager soundManager) {
         if (isFiringLaser || isDying) return;
 
         long currentTime = System.currentTimeMillis();
-        // سرعة الضرب تعتمد على الليفل
-        int fireRate = 1200 - (level * 150);
+        // سرعة الضرب تزيد مع المستويات
+        int fireRate = 1200 - (level * 200);
 
         if (currentTime - lastShotTime > fireRate) {
 
-            // --- هنا السحر: إخراج الطلقة من فوهة المدفع المرسومة ---
+            // تحديد ارتفاع خروج الطلقة (فوهة المدفع)
+            float spawnY = y + (height * 0.1f);
 
-            // حساب الموقع الحقيقي للفوهة في الشاشة
-            // BossX + OffsetX
-            float spawnX_Left = x + gun1_OffsetX;
-            float spawnY      = y + gun1_OffsetY;
+            // --- Level 1: طلقتين (يمين ويسار) ---
+            if (level == 1) {
+                float spawnX_Left = x + (width * 0.2f);
+                float spawnX_Right = x + (width * 0.8f);
 
-            float spawnX_Right = x + gun2_OffsetX;
+                bullets.add(new Bullet(spawnX_Left, spawnY, 0, -8, true, 6));
+                bullets.add(new Bullet(spawnX_Right, spawnY, 0, -8, true, 6));
+            }
+            // --- Level 2: 4 طلقات (موزعة بالتساوي) ---
+            else if (level == 2) {
+                // نوزع 4 طلقات على عرض البوس (20%, 40%, 60%, 80%)
+                bullets.add(new Bullet(x + (width * 0.2f), spawnY, 0, -9, true, 6));
+                bullets.add(new Bullet(x + (width * 0.4f), spawnY, 0, -9, true, 6));
+                bullets.add(new Bullet(x + (width * 0.6f), spawnY, 0, -9, true, 6));
+                bullets.add(new Bullet(x + (width * 0.8f), spawnY, 0, -9, true, 6));
+            }
+            // --- Level 3: 5 طلقات (مروحة Fan) ---
+            else {
+                float centerX = x + width / 2;
 
-            // إطلاق طلقتين من المدافع
-            // المعامل الأخير (textureIndex) هو صورة طلقة العدو (مثلاً 6)
-            bullets.add(new Bullet(spawnX_Left, spawnY, 0, -8, true, 6));
-            bullets.add(new Bullet(spawnX_Right, spawnY, 0, -8, true, 6));
+                // الوسط
+                bullets.add(new Bullet(centerX, spawnY, 0, -12, true, 6));
 
-            // لو الليفل عالي (2 أو 3)، ممكن نضيف مدفع تالت في النص
-            if (level >= 2) {
-                bullets.add(new Bullet(x + width / 2 - 7, y + height, 0, -10, true, 6));
+                // زاوية داخلية
+                bullets.add(new Bullet(x + (width * 0.3f), spawnY, -2, -10, true, 6));
+                bullets.add(new Bullet(x + (width * 0.7f), spawnY, 2, -10, true, 6));
+
+                // زاوية خارجية
+                bullets.add(new Bullet(x + (width * 0.1f), spawnY, -4, -9, true, 6));
+                bullets.add(new Bullet(x + (width * 0.9f), spawnY, 4, -9, true, 6));
+            }
+
+            if (soundManager != null) {
+                soundManager.playSound("boss_laser");
             }
 
             lastShotTime = currentTime;
@@ -129,12 +138,11 @@ public class Boss extends GameObject {
             myBossStartIndex = 7;
             myBossEndIndex   = 11;
         } else if (level == 2){
-            // المستويات 2
             myBossStartIndex = 12;
             myBossEndIndex   = 18;
         }
         else {
-            // المستوى 3
+            // المستوى 3 (حسب الكود الخاص بك)
             myBossStartIndex = 61;
             myBossEndIndex   = 67;
         }
@@ -148,14 +156,11 @@ public class Boss extends GameObject {
             // --- حالة الحياة ---
             // يظل البوس على صورته الأولى (السليمة) ولا يتغير شكله مع نقص الصحة
             textureIndex = textures[myBossStartIndex];
-
-            // لون طبيعي
             gl.glColor3f(1, 1, 1);
 
         } else {
             // --- حالة الموت (Animation) ---
-            // هنا يتم تشغيل جميع الصور (من السليم للمدمر) كتسلسل انفجار
-            int deathSpeed = 5; // سرعة الأنيميشن (كل ما الرقم قل، بقى أسرع)
+            int deathSpeed = 5;
 
             dieFrameCounter++;
             if (dieFrameCounter > deathSpeed) {
@@ -163,7 +168,6 @@ public class Boss extends GameObject {
                 currentTextureOffset++;
             }
 
-            // حساب الصورة الحالية في شريط الانفجار
             int currentAnimIndex = myBossStartIndex + currentTextureOffset;
 
             // التحقق من انتهاء الصور
@@ -182,20 +186,18 @@ public class Boss extends GameObject {
         // 4. الرسم النهائي
         // ============================================================
 
-        // رسم جسم البوس (إذا لم ينتهِ الانفجار)
         if (!animationFinished) {
             drawTexture(gl, textureIndex, x, y, width, height);
         }
 
         // رسم شريط الصحة (فقط إذا كان حياً)
-        // نعيد اللون للأبيض لضمان أن البار يظهر بألوانه الصحيحة
         gl.glColor3f(1, 1, 1);
         if (!isDying) {
             drawHealthBar(gl);
         }
-    }    // --- التعديل الأساسي هنا ---
+    }
+
     private void drawHealthBar(GL gl) {
-        // 1. مهم جداً: إيقاف التكستشر عشان الألوان تظهر صح ومش سوداء
         gl.glDisable(GL.GL_TEXTURE_2D);
 
         float barWidth = width-5;
@@ -203,8 +205,8 @@ public class Boss extends GameObject {
         float barX = x;
         float barY = y + height-27; // فوق البوس
 
-        // 2. رسم الخلفية الحمراء (Full Width)
-        gl.glColor3f(1.0f, 0.0f, 0.0f); // أحمر
+        // Background (Red)
+        gl.glColor3f(1.0f, 0.0f, 0.0f);
         gl.glBegin(GL.GL_QUADS);
         gl.glVertex2f(barX, barY);
         gl.glVertex2f(barX + barWidth, barY);
@@ -212,11 +214,11 @@ public class Boss extends GameObject {
         gl.glVertex2f(barX, barY + barHeight);
         gl.glEnd();
 
-        // 3. رسم الجزء الأخضر (بناءً على النسبة)
+        // Health (Green)
         float hpPercent = (float) health / maxHealth;
         float currentGreenWidth = barWidth * hpPercent;
 
-        gl.glColor3f(0.0f, 1.0f, 0.0f); // أخضر
+        gl.glColor3f(0.0f, 1.0f, 0.0f);
         gl.glBegin(GL.GL_QUADS);
         gl.glVertex2f(barX, barY);
         gl.glVertex2f(barX + currentGreenWidth, barY);
@@ -224,8 +226,8 @@ public class Boss extends GameObject {
         gl.glVertex2f(barX, barY + barHeight);
         gl.glEnd();
 
-        // 4. (اختياري) إطار أبيض عشان يحدد البار
-        gl.glColor3f(1.0f, 1.0f, 1.0f); // أبيض
+        // White Border
+        gl.glColor3f(1.0f, 1.0f, 1.0f);
         gl.glLineWidth(1.0f);
         gl.glBegin(GL.GL_LINE_LOOP);
         gl.glVertex2f(barX, barY);
@@ -234,10 +236,7 @@ public class Boss extends GameObject {
         gl.glVertex2f(barX, barY + barHeight);
         gl.glEnd();
 
-        // 5. إعادة تفعيل التكستشر لباقي اللعبة
         gl.glEnable(GL.GL_TEXTURE_2D);
-
-        // إعادة اللون للأبيض عشان الرسومات اللي بعد كده متتلونش
         gl.glColor3f(1, 1, 1);
     }
 
@@ -247,11 +246,11 @@ public class Boss extends GameObject {
         gl.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA);
 
         Rectangle rect = getLaserBounds();
-        float topY = rect.y + rect.height; // أعلى الليزر (البوس)
-        float bottomY = 0;                 // أسفل الشاشة
+        float topY = rect.y + rect.height;
+        float bottomY = 0;
 
-        // --- الليزر الخارجي (Glow) ---
-        gl.glColor4f(1.0f, 0.6f, 0.6f, 0.6f); // أحمر فاتح شفاف
+        // Glow
+        gl.glColor4f(1.0f, 0.6f, 0.6f, 0.6f);
         gl.glBegin(GL.GL_QUADS);
         gl.glVertex2f(rect.x - 10, topY);
         gl.glVertex2f(rect.x + rect.width + 10, topY);
@@ -259,8 +258,8 @@ public class Boss extends GameObject {
         gl.glVertex2f(rect.x - 10, bottomY);
         gl.glEnd();
 
-        // --- الليزر الداخلي (Core) ---
-        gl.glColor4f(1.0f, 0.0f, 0.0f, 0.9f); // أحمر قوي
+        // Core
+        gl.glColor4f(1.0f, 0.0f, 0.0f, 0.9f);
         gl.glBegin(GL.GL_QUADS);
         gl.glVertex2f(rect.x + 3, topY);
         gl.glVertex2f(rect.x + rect.width - 3, topY);

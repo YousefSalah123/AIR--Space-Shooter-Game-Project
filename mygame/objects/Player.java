@@ -8,7 +8,7 @@ public class Player extends GameObject {
 
     public final float SCREEN_WIDTH = 800;
     public final float SCREEN_HEIGHT = 600;
-    public static final int MAX_HEALTH = 10000;
+    public static final int MAX_HEALTH = 100;
 
     // --- Shield Variables ---
     public boolean isShieldActive = false;
@@ -188,6 +188,14 @@ public class Player extends GameObject {
         currentTextureIndex = 1;
         this.x = 375;
         this.y = 50;
+        canUseShield = true;
+        canUseLaser = true;
+        canUseSuper = true;
+        specialAttackAvailable = true;
+        isSpecialAttackActive = false;
+        isShieldAvailable = true;
+        isLaserBeamActive = false;
+        isLaserAvailable = true;
     }
 
     public void handleInput(boolean[] keys) {
@@ -199,7 +207,9 @@ public class Player extends GameObject {
         if (keys[KeyEvent.VK_RIGHT]) x += speed;
     }
 
-    public void upgradeWeapon() { if (weaponLevel < 3) weaponLevel++; }
+    public void upgradeWeapon() {
+        if (weaponLevel < 3) weaponLevel++;
+    }
 
 
     // --- Render ---
@@ -252,12 +262,12 @@ public class Player extends GameObject {
             gl.glEnable(GL.GL_BLEND);
             gl.glColor4f(1.0f, 0.5f, 0.0f, 0.8f);
             gl.glBegin(GL.GL_TRIANGLES);
-            gl.glVertex2f(x + width/2 - 10, y);
-            gl.glVertex2f(x + width/2 + 10, y);
-            gl.glVertex2f(x + width/2, y - 40);
+            gl.glVertex2f(x + width / 2 - 10, y);
+            gl.glVertex2f(x + width / 2 + 10, y);
+            gl.glVertex2f(x + width / 2, y - 40);
             gl.glEnd();
             gl.glDisable(GL.GL_BLEND);
-            gl.glColor3f(1,1,1);
+            gl.glColor3f(1, 1, 1);
         }
 
         // 5. Draw Shield Texture Only
@@ -303,10 +313,14 @@ public class Player extends GameObject {
         gl.glColor4f(1f, 1f, 1f, 0.8f);
 
         gl.glBegin(GL.GL_QUADS);
-        gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2d(-sSize/2, -sSize/2);
-        gl.glTexCoord2f(1.0f, 0.0f); gl.glVertex2d(sSize/2, -sSize/2);
-        gl.glTexCoord2f(1.0f, 1.0f); gl.glVertex2d(sSize/2, sSize/2);
-        gl.glTexCoord2f(0.0f, 1.0f); gl.glVertex2d(-sSize/2, sSize/2);
+        gl.glTexCoord2f(0.0f, 0.0f);
+        gl.glVertex2d(-sSize / 2, -sSize / 2);
+        gl.glTexCoord2f(1.0f, 0.0f);
+        gl.glVertex2d(sSize / 2, -sSize / 2);
+        gl.glTexCoord2f(1.0f, 1.0f);
+        gl.glVertex2d(sSize / 2, sSize / 2);
+        gl.glTexCoord2f(0.0f, 1.0f);
+        gl.glVertex2d(-sSize / 2, sSize / 2);
         gl.glEnd();
 
         gl.glPopMatrix();
@@ -319,10 +333,14 @@ public class Player extends GameObject {
         gl.glColor3f(1, 1, 1);
         gl.glPushMatrix();
         gl.glBegin(GL.GL_QUADS);
-        gl.glTexCoord2f(0.0f, 1.0f); gl.glVertex2f(x, y + h);
-        gl.glTexCoord2f(1.0f, 1.0f); gl.glVertex2f(x + w, y + h);
-        gl.glTexCoord2f(1.0f, 0.0f); gl.glVertex2f(x + w, y);
-        gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2f(x, y);
+        gl.glTexCoord2f(0.0f, 1.0f);
+        gl.glVertex2f(x, y + h);
+        gl.glTexCoord2f(1.0f, 1.0f);
+        gl.glVertex2f(x + w, y + h);
+        gl.glTexCoord2f(1.0f, 0.0f);
+        gl.glVertex2f(x + w, y);
+        gl.glTexCoord2f(0.0f, 0.0f);
+        gl.glVertex2f(x, y);
         gl.glEnd();
         gl.glPopMatrix();
         gl.glDisable(GL.GL_BLEND);
@@ -350,10 +368,18 @@ public class Player extends GameObject {
 
     // Kept but unused in render
     private void drawShield(GL gl) {
-        gl.glEnable(GL.GL_BLEND); gl.glColor4f(0.0f, 1.0f, 1.0f, 0.4f);
-        float cx = x + width/2, cy = y + height/2; float radius = 45;
-        gl.glBegin(GL.GL_POLYGON); for (int i = 0; i < 360; i += 20) { double angle = Math.toRadians(i); gl.glVertex2d(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius); } gl.glEnd();
-        gl.glDisable(GL.GL_BLEND); gl.glColor3f(1,1,1);
+        gl.glEnable(GL.GL_BLEND);
+        gl.glColor4f(0.0f, 1.0f, 1.0f, 0.4f);
+        float cx = x + width / 2, cy = y + height / 2;
+        float radius = 45;
+        gl.glBegin(GL.GL_POLYGON);
+        for (int i = 0; i < 360; i += 20) {
+            double angle = Math.toRadians(i);
+            gl.glVertex2d(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius);
+        }
+        gl.glEnd();
+        gl.glDisable(GL.GL_BLEND);
+        gl.glColor3f(1, 1, 1);
     }
 
     private void drawLaserBeam(GL gl) {
@@ -385,7 +411,15 @@ public class Player extends GameObject {
         gl.glColor3f(1, 1, 1);
     }
 
-    public Rectangle getLaserBounds() { return new Rectangle((int) (x + width / 2 - 10), (int) (y + height), 20, 600); }
-    public int getHealth() { return health; }
-    public void setHealth(int health) { this.health = health; }
+    public Rectangle getLaserBounds() {
+        return new Rectangle((int) (x + width / 2 - 10), (int) (y + height), 20, 600);
+    }
+
+    public int getHealth() {
+        return health;
+    }
+
+    public void setHealth(int health) {
+        this.health = health;
+    }
 }

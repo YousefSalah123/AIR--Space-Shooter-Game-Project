@@ -9,6 +9,7 @@ import javax.media.opengl.glu.GLU;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.io.IOException;
+import java.util.Arrays;
 
 public class GameListener extends AnimListener implements GLEventListener, KeyListener {
     public GameListener(GameManager manager) {
@@ -63,7 +64,7 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
             "enemy3.png",       // 23
             "coin.png",         // 24
             "BulletHero.png",   // 25
-            "Boss.png",        // 26
+            "Boss2.6.png",        // 26
             "Shield.png",       // 27
 
             // --- صور خلفيات المستوى الأول (Start Index: 28) ---
@@ -416,6 +417,7 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
             if (e.getKeyCode() == KeyEvent.VK_Z && !manager.player.isSpecialAttackActive) manager.fireLaser();
             if (e.getKeyCode() == KeyEvent.VK_X) manager.activateShield();
             if (e.getKeyCode() == KeyEvent.VK_SPACE) manager.player.activateSpecialAttack();
+            if (e.getKeyCode() == KeyEvent.VK_ESCAPE) manager.game.togglePause();
         }
     }
 
@@ -426,4 +428,9 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
     }
     @Override
     public void keyTyped(KeyEvent e) {}
+
+    public void resetKeys() {
+        Arrays.fill(keys, false);
+    }
+
 }

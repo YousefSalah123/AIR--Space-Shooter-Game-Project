@@ -17,16 +17,23 @@ public class SoundManager {
 
         // تعديل المسارات لتكون نسبية (Relative Paths)
         // المسار يبدأ بـ / ويعني البدء من مجلد الـ src
-        loadSound("player_laser", "/mygame/sounds/player_laser.wav");
-        loadSound("enemy_laser", "/mygame/sounds/enemy_laser.wav");
-        loadSound("explosion", "/mygame/sounds/explosion.wav");
-        loadSound("powerup", "/mygame/sounds/powerup.wav");
-        loadSound("shield_active", "/mygame/sounds/shield.wav");
-        loadSound("game_over", "/mygame/sounds/gameover.wav");
 
-        // تحميل الموسيقى الخلفية
-        loadMusic("/mygame/sounds/music_loop.wav");
-    }
+            // تحميل الأصوات بالأسماء الجديدة والمسارات الجديدة
+            loadSound("Boss_laser", "/mygame/sounds/Boss_laser.wav");
+//            loadSound("BulletsWave", "/mygame/sounds/BulletsWave.wav");
+            loadSound("coin", "/mygame/sounds/coin.wav");
+            loadSound("enemy_laser", "/mygame/sounds/enemy_laser.wav");
+            loadSound("explosion", "/mygame/sounds/explosion.wav");
+            loadSound("game_over", "/mygame/sounds/gameover.wav");
+//            loadSound("laser", "/mygame/sounds/Laser1.wav"); // الليزر الخارق
+            loadSound("LevelComplete", "/mygame/sounds/LevelComplete.wav");
+            loadSound("Player_laser", "/mygame/sounds/Player_laser.wav");
+            loadSound("powerup", "/mygame/sounds/powerup.wav");
+            loadSound("shield", "/mygame/sounds/shield.wav");
+
+            // الموسيقى الخلفية
+            loadMusic("/mygame/sounds/music_loop.wav");
+        }
 
     // دالة لتحميل مؤثر صوتي قصير باستخدام الموارد (Resources)
     private void loadSound(String name, String path) {

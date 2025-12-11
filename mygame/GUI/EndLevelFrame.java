@@ -102,7 +102,7 @@ public class EndLevelFrame extends JFrame {
 
         // --- استخدام الأزرار المطلوبة ---
         JButton retryBtn = createGameButton("RETRY MISSION");
-        JButton nextBtn = createGameButton(victory ? "NEXT LEVEL" : "MAIN MENU");
+        JButton nextBtn = createGameButton(victory ? "Back To MENU" : "MAIN MENU");
 
         retryBtn.addActionListener(onRetry);
         nextBtn.addActionListener(onNext);

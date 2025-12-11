@@ -27,7 +27,7 @@ public class PauseMenuFrame extends JFrame {
     private ShootingStar shootingStar;
     private final Timer animationTimer;
 
-    private static boolean isMuted = false;
+    public static boolean isMuted = false;
 
     public PauseMenuFrame(ActionListener onResume, ActionListener onRestart, ActionListener onMenu, ActionListener onToggleSound) {
         setTitle("SYSTEM PAUSED");

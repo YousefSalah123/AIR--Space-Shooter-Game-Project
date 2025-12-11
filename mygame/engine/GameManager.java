@@ -2,14 +2,17 @@ package mygame.engine;
 
 import mygame.Game;
 import mygame.objects.*;
+
 import javax.media.opengl.GL;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.Random;
+import com.sun.opengl.util.GLUT; // تأكد من عمل Import لهذا الكلاس للنصوص
+
 
 
 public class GameManager {
-    private final Game game;
+    final Game game;
     // متغير لتخزين وقت آخر ضربة تلقاها اللاعب
     private long lastDamageTime = 0;
     // متغيرات التحكم في كثافة الأعداء
@@ -35,9 +38,14 @@ public class GameManager {
     private long lastAutoShotTime = 0;
     private int fireRate = 300;
     private long lastRandomSpawnTime = 0;
+    // متغير للتأكد من تشغيل صوت موت البوس مرة واحدة فقط
+    private boolean bossDeathSoundPlayed = false;
     // Sound Manager
-    private SoundManager soundManager;
-    
+    public SoundManager soundManager;
+    private boolean showLevelScreen = false; // هل نعرض شاشة الليفل الآن؟
+    private long levelScreenTimer = 0;       // مؤقت العرض
+    private GLUT glut=new GLUT();
+
     public GameManager(Game game) {
         this.game = game;
         player = new Player(375, 50);
@@ -49,6 +57,7 @@ public class GameManager {
         soundManager = new SoundManager();
         soundManager.playMusic();
     }
+
     public void update() {
         if (!isGameRunning) return; // إذا اللعبة متوقفة، تجاهل
         if (gameOver || gameWon) {
@@ -66,7 +75,6 @@ public class GameManager {
                 player.setAlive(false);
                 // Fix: Play game over sound only once
                 if (!gameOver) {
-                    soundManager.stopMusic();
                     soundManager.playSound("game_over");
                     gameOver = true;
                 }
@@ -81,7 +89,22 @@ public class GameManager {
 
         player.update();
         if (isLevelTransitioning) {
-            if (player.getY() > 700) startNextLevel();
+            // عندما يغادر اللاعب الشاشة (بعد قتل البوس)
+            if (player.getY() > 700) {
+
+                // إذا لم نكن نعرض الشاشة بعد، ابدأ عرضها
+                if (!showLevelScreen) {
+                    showLevelScreen = true;
+                    levelScreenTimer = System.currentTimeMillis();
+                }
+                else {
+                    // نحن الآن نعرض الشاشة، ننتظر لمدة 3 ثواني (3000 ملي ثانية)
+                    if (System.currentTimeMillis() - levelScreenTimer > 3000) {
+                        showLevelScreen = false; // إخفاء الشاشة
+                        startNextLevel();        // بدء المستوى الجديد فعلياً
+                    }
+                }
+            }
             return;
         }
 
@@ -106,22 +129,22 @@ public class GameManager {
         for (int i = items.size() - 1; i >= 0; i--) {
             Item item = items.get(i);
             item.update();
-            if (player.getBounds().intersects(item.getBounds())) {
-                applyItem(item.getType());
-                soundManager.playSound("powerup"); // Sound Effect
-                items.remove(i);
-            } else if (item.getY() < -50) items.remove(i);
+           if (item.getY() < -50) items.remove(i);
         }
 
         // 5. Update Boss (Modified for Death Animation)
         if (bossActive && boss != null) {
             boss.update(); // تحديث الحركة والأنيميشن
-            boss.shootLogic(bullets); // إطلاق النار (لن يعمل إذا كان Boss.isDying)
-
-            // التحقق مما إذا كان الزعيم مات وانتهى العرض
+            // --- التعديل هنا: تمرير player كباراميتر ثالث ---
+            boss.shootLogic(bullets, soundManager);
+            if (boss.isDying && !bossDeathSoundPlayed) {
+                soundManager.stopMusic(); // وقف مزيكا اللعب العادية
+                soundManager.playSound("LevelComplete"); // شغل موسيقى الفوز فوراً
+                bossDeathSoundPlayed = true; // عشان ما يشتغلش تاني في الفريم اللي بعده
+            }
             if (boss.isDying && boss.animationFinished) {
-                boss.setAlive(false); // الآن نقتله فعلياً
-                handleBossDefeat();   // ننتقل للمستوى التالي
+                boss.setAlive(false);
+                handleBossDefeat();
             }
         }
 
@@ -165,7 +188,7 @@ public class GameManager {
             // لو بيموت -> ما تخليهوش يضرب
             if (e.isDying) continue;
 
-            if (e.readyToFire()){
+            if (e.readyToFire()) {
                 enemyShootPattern(e);
                 soundManager.playSound("enemy_laser"); // Sound Effect
             }
@@ -182,7 +205,7 @@ public class GameManager {
     // ... (باقي الدوال WaveLogic, Spawn, etc. كما هي) ...
     // سأضع فقط الدوال التي تحتاج تغيير مباشر للتوافق مع التعديل
 
-    public void playerTakeDamage() {
+    public void playerTakeDamage(int amount) {
         if (!isGameRunning) return;
         if (player.isDying) return;
 
@@ -194,9 +217,12 @@ public class GameManager {
         lastDamageTime = currentTime; // سجل وقت الضربة دي
         // -----------------------------------
 
-        if (player.isShieldActive) { player.activateShieldManual(); return; }
+        if (player.isShieldActive) {
+            player.activateShieldManual();
+            return;
+        }
 
-        player.setHealth(player.getHealth() - 1); // نقص الصحة
+        player.setHealth(player.getHealth() - amount); // نقص الصحة
 
         // (اختياري) ممكن تطبع الصحة عشان تتأكد
         System.out.println("Player Hit! HP: " + player.getHealth());
@@ -205,9 +231,9 @@ public class GameManager {
             player.isDying = true;
         }
     }
+
     public void render(GL gl, int[] textures) {
         // لو اللعبة مش شغالة (أو لسه بتبدأ)، ما ترسمش حاجة قديمة
-        // الـ GUI هو اللي مغطي الشاشة دلوقتي
         if (!isGameRunning) {
             return;
         }
@@ -229,22 +255,36 @@ public class GameManager {
             item.render(gl, textures);
         }
 
-        // 4. رسم الأعداء المتوسطين + Health Bar
+        // 4. رسم الأعداء المتوسطين (مكبرين) + Health Bar
         for (MiddleEnemy me : activeMiddleEnemies) {
-            me.render(gl, textures);
+            // --- تكبير حجم العدو المتوسط بصرياً فقط (دون تغيير الكلاس) ---
+            gl.glPushMatrix(); // حفظ الإحداثيات الحالية
+            gl.glTranslatef(me.x, me.y, 0); // نقل نقطة الرسم لمنتصف العدو
+            gl.glScalef(1.5f, 1.5f, 1f);    // تكبير الحجم مرة ونصف (1.5x)
+            gl.glTranslatef(-me.x, -me.y, 0); // إرجاع نقطة الرسم لمكانها
 
-            // رسم بار الصحة للعدو المتوسط
+            me.render(gl, textures); // رسم العدو (سيظهر كبيراً الآن)
+
+            gl.glPopMatrix(); // استعادة الإحداثيات الطبيعية لباقي العناصر
+
+            // --- رسم بار الصحة (معدل المكان) ---
             gl.glDisable(GL.GL_TEXTURE_2D);
+
+            float barTotalWidth = 40f;
+            // بما أننا كبرنا العدو، لازم نرفع البار لفوق شوية (كان 35 خليناه 55)
+            float barStartY = me.y + 55;
             float barStartX = me.x - 19;
-            float barStartY = me.y + 35;
+
             float percent = (float) me.health / (float) me.maxHealth;
 
+            // الخلفية الحمراء
             gl.glColor3f(0.6f, 0.0f, 0.0f);
-            gl.glRectf(barStartX, barStartY, barStartX + 40f, barStartY + 4f);
+            gl.glRectf(barStartX, barStartY, barStartX + barTotalWidth, barStartY + 4f);
 
+            // النسبة الخضراء
             if (percent > 0) {
                 gl.glColor3f(0.0f, 1.0f, 0.0f);
-                gl.glRectf(barStartX, barStartY, barStartX + (40f * percent), barStartY + 4f);
+                gl.glRectf(barStartX, barStartY, barStartX + (barTotalWidth * percent), barStartY + 4f);
             }
             gl.glColor3f(1, 1, 1);
             gl.glEnable(GL.GL_TEXTURE_2D);
@@ -282,8 +322,49 @@ public class GameManager {
             drawPlayerHUD(gl, textures);
         }
 
-        // --- (تم حذف كود الشاشة الحمراء والخضراء من هنا) ---
-        // لأننا بنوقف الـ Animator فوراً لما اللعبة تخلص، والـ EndLevelFrame بيظهر
+        if (showLevelScreen) {
+            drawNextLevelScreen(gl);
+        }
+    }
+    private void drawNextLevelScreen(GL gl) {
+        // 1. إعداد الرسم ثنائي الأبعاد بدون تكستشر
+        gl.glDisable(GL.GL_TEXTURE_2D);
+        gl.glEnable(GL.GL_BLEND);
+        gl.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA);
+
+        // 2. رسم خلفية سوداء نصف شفافة تغطي الشاشة
+        gl.glColor4f(0.0f, 0.0f, 0.0f, 0.8f);
+        gl.glBegin(GL.GL_QUADS);
+        gl.glVertex2f(0, 0);
+        gl.glVertex2f(800, 0);
+        gl.glVertex2f(800, 600);
+        gl.glVertex2f(0, 600);
+        gl.glEnd();
+
+        // 3. إعداد النص (لون أبيض)
+        gl.glColor3f(1.0f, 1.0f, 1.0f);
+
+        // تحديد المستوى القادم (الحالي + 1)
+        int nextLvl = currentLevel + 1;
+        String text = "LEVEL " + nextLvl;
+        if (nextLvl > 3) text = "VICTORY!"; // إذا انتهت اللعبة
+
+        // 4. رسم النص في منتصف الشاشة باستخدام GLUT
+        // ملاحظة: نقوم بضبط الموقع يدوياً تقريباً
+        gl.glRasterPos2f(320, 300);
+        glut.glutBitmapString(GLUT.BITMAP_TIMES_ROMAN_24, text);
+
+        // نص إضافي صغير "Get Ready"
+        if (nextLvl <= 3) {
+            gl.glColor3f(1.0f, 1.0f, 0.0f); // أصفر
+            gl.glRasterPos2f(340, 270);
+            glut.glutBitmapString(GLUT.BITMAP_HELVETICA_18, "GET READY");
+        }
+
+        // إعادة الإعدادات كما كانت
+        gl.glDisable(GL.GL_BLEND);
+        gl.glEnable(GL.GL_TEXTURE_2D);
+        gl.glColor3f(1, 1, 1);
     }
     // =============================================================
     // الدوال المساعدة لرسم الـ HUD الجديد (ضعها داخل GameManager)
@@ -345,23 +426,32 @@ public class GameManager {
         gl.glColor3f(1, 1, 1);
         gl.glDisable(GL.GL_BLEND); // نوقف الدمج عشان مياثرش على اللي بعده غلط
     }
+
     private void drawIcon(GL gl, int textureId, float x, float y, float width, float height) {
         gl.glBindTexture(GL.GL_TEXTURE_2D, textureId);
         gl.glBegin(GL.GL_QUADS);
-        gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2f(x, y);
-        gl.glTexCoord2f(1.0f, 0.0f); gl.glVertex2f(x + width, y);
-        gl.glTexCoord2f(1.0f, 1.0f); gl.glVertex2f(x + width, y + height);
-        gl.glTexCoord2f(0.0f, 1.0f); gl.glVertex2f(x, y + height);
+        gl.glTexCoord2f(0.0f, 0.0f);
+        gl.glVertex2f(x, y);
+        gl.glTexCoord2f(1.0f, 0.0f);
+        gl.glVertex2f(x + width, y);
+        gl.glTexCoord2f(1.0f, 1.0f);
+        gl.glVertex2f(x + width, y + height);
+        gl.glTexCoord2f(0.0f, 1.0f);
+        gl.glVertex2f(x, y + height);
         gl.glEnd();
     }
 
     private void drawIcon(GL gl, int textureId, float x, float y, float size) {
         gl.glBindTexture(GL.GL_TEXTURE_2D, textureId);
         gl.glBegin(GL.GL_QUADS);
-        gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2f(x, y);
-        gl.glTexCoord2f(1.0f, 0.0f); gl.glVertex2f(x + size, y);
-        gl.glTexCoord2f(1.0f, 1.0f); gl.glVertex2f(x + size, y + size);
-        gl.glTexCoord2f(0.0f, 1.0f); gl.glVertex2f(x, y + size);
+        gl.glTexCoord2f(0.0f, 0.0f);
+        gl.glVertex2f(x, y);
+        gl.glTexCoord2f(1.0f, 0.0f);
+        gl.glVertex2f(x + size, y);
+        gl.glTexCoord2f(1.0f, 1.0f);
+        gl.glVertex2f(x + size, y + size);
+        gl.glTexCoord2f(0.0f, 1.0f);
+        gl.glVertex2f(x, y + size);
         gl.glEnd();
     }
 
@@ -400,15 +490,93 @@ public class GameManager {
         // إعادة تفعيل الصور
         gl.glEnable(GL.GL_TEXTURE_2D);
     }// لتوفير المساحة سأفترض أنك تملك باقي الكلاس، فقط استبدل playerTakeDamage و update
+
     // في GameManager
     public void activateShield2() {
         if (player != null && !player.isDying) {
             player.activateShield();
         }
     }
-    private void updateWaveLogic() { /* نفس الكود السابق */ if (bossActive || isLevelTransitioning) return; if (!activeMiddleEnemies.isEmpty()) return; if (System.currentTimeMillis() - waveTimer > 5000) { waveStep++; switch (waveStep) { case 1: spawnSquadV(400, 750, 5); break; case 2: spawnSquadSide(true, 4); break; case 3: spawnSquadSide(false, 4); break; case 4: if (!middleWaveSpawned) { spawnMiddleEnemies(); } else { waveStep++; } break; case 5: spawnBoss(); break; } waveTimer = System.currentTimeMillis(); } }
-    private void spawnMiddleEnemies() { activeMiddleEnemies.clear(); int hp = 25 + (currentLevel * 10); MiddleEnemy left = new MiddleEnemy(250, 750, 1, currentLevel); left.health = hp; left.maxHealth = hp; left.shotDelay = 1200 - (currentLevel * 100); activeMiddleEnemies.add(left); MiddleEnemy right = new MiddleEnemy(550, 750, 2, currentLevel); right.health = hp; right.maxHealth = hp; right.shotDelay = 1600 - (currentLevel * 100); activeMiddleEnemies.add(right); middleWaveSpawned = true; }
-    private void spawnBoss() { System.out.println("BOSS LEVEL " + currentLevel + " INCOMING!"); boss = new Boss(350, 700, currentLevel); bossActive = true; bullets.clear(); }
+
+    private void updateWaveLogic() { /* نفس الكود السابق */
+        if (bossActive || isLevelTransitioning) return;
+        if (!activeMiddleEnemies.isEmpty()) return;
+        if (System.currentTimeMillis() - waveTimer > 5000) {
+            waveStep++;
+            switch (waveStep) {
+                case 1:
+                    spawnSquadV(400, 750, 5);
+                    break;
+                case 2:
+                    spawnSquadSide(true, 4);
+                    break;
+                case 3:
+                    spawnSquadSide(false, 4);
+                    break;
+                case 4:
+                    if (!middleWaveSpawned) {
+                        spawnMiddleEnemies();
+                    } else {
+                        waveStep++;
+                    }
+                    break;
+                case 5:
+                    spawnBoss();
+                    break;
+            }
+            waveTimer = System.currentTimeMillis();
+        }
+    }
+
+    private void spawnMiddleEnemies() {
+        activeMiddleEnemies.clear();
+
+        // 1. تحديد الصحة (أقوى من الأعداء العاديين)
+        // العدو العادي صحته 100
+        int hp;
+        if (currentLevel == 1) {
+            hp = 100;      // صحة عادية
+        } else if (currentLevel == 2) {
+            hp = 130;      // أقوى مرة ونصف
+        } else {
+            hp = 150;      // دبابة (صعب القتل)
+        }
+
+        // 2. تحديد العدد حسب المستوى
+        int enemyCount;
+        if (currentLevel == 1) enemyCount = 2;
+        else if (currentLevel == 2) enemyCount = 3;
+        else enemyCount = 4;
+
+        // 3. حساب المسافات للتوزيع
+        float screenWidth = 800f;
+        float spacing = screenWidth / (enemyCount + 1);
+        float startY = 750;
+
+        for (int i = 0; i < enemyCount; i++) {
+            float x = spacing * (i + 1);
+            int type = (i % 2) + 1;
+
+            MiddleEnemy me = new MiddleEnemy(x, startY, type, currentLevel);
+            me.health = hp;
+            me.maxHealth = hp;
+
+            // تنويع وقت الضرب
+            me.shotDelay = (1200 - (currentLevel * 100)) + (i * 150);
+
+            activeMiddleEnemies.add(me);
+        }
+
+        middleWaveSpawned = true;
+        System.out.println("Spawned " + enemyCount + " Middle Enemies (HP: " + hp + ")");
+    }    private void spawnBoss() {
+        System.out.println("BOSS LEVEL " + currentLevel + " INCOMING!");
+        boss = new Boss(350, 700, currentLevel);
+        bossActive = true;
+        bossDeathSoundPlayed = false; // <-- ضيف السطر ده مهم جداً
+        bullets.clear();
+    }
+
     public void checkCollisions() {
         // 1. حماية اللاعب: لو اللاعب بيموت، وقف حساب التصادمات
         if (player.isDying) return;
@@ -428,7 +596,9 @@ public class GameManager {
 
             // 1. جسم اللاعب ضد جسم العدو
             if (pRect.intersects(meRect)) {
+                // صوت الاصطدام القوي
                 soundManager.playSound("explosion");
+
                 if (player.isShieldActive) {
                     // --- حالة الدرع مفعل ---
                     // العدو يتضرر بشدة
@@ -436,7 +606,7 @@ public class GameManager {
                 } else {
                     // --- حالة بدون درع ---
                     // اللاعب يتضرر (نستخدم الدالة الجديدة اللي فيها Cooldown)
-                    playerTakeDamage();
+                    playerTakeDamage(5);
 
                     // العدو يتضرر بشدة
                     me.setHealth(me.getHealth() - 100);
@@ -447,6 +617,7 @@ public class GameManager {
                     me.setHealth(0); // منع الصحة السالبة
                     // لا نحذف العدو هنا، بل نبدأ الأنيميشن
                     me.startDeath();
+                    score += 50;
                     // نوقف اللوب للحظة عشان ما يحصلش أخطاء حسابية في نفس الفريم
                     continue;
                 }
@@ -458,6 +629,7 @@ public class GameManager {
                 if (me.getHealth() <= 0) {
                     me.setHealth(0);
                     me.startDeath();
+                    // صوت انفجار العدو
                     soundManager.playSound("explosion");
                 }
             }
@@ -472,6 +644,7 @@ public class GameManager {
                     if (me.getHealth() <= 0) {
                         me.setHealth(0);
                         me.startDeath();
+                        // صوت انفجار العدو
                         soundManager.playSound("explosion");
                     }
                 }
@@ -487,10 +660,11 @@ public class GameManager {
             // 1. ليزر الزعيم ضد اللاعب
             if (boss.isFiringLaser && boss.getLaserBounds().intersects(pRect)) {
                 if (!player.isShieldActive) {
-                    // ضرر الليزر سريع، فممكن نستخدم health مباشرة أو playerTakeDamage لو عايز تقلل سرعة الموت
-                    player.setHealth(player.getHealth() - 3);
-                    if (player.getHealth() <= 0) {player.isDying = true;
-                        soundManager.playSound("explosion");
+                    // ضرر الليزر سريع
+                    playerTakeDamage(3);
+                    if (player.getHealth() <= 0) {
+                        player.isDying = true;
+                        soundManager.playSound("explosion"); // صوت تدمير اللاعب
                     }
                 }
             }
@@ -503,15 +677,12 @@ public class GameManager {
             // 3. جسم اللاعب ضد جسم الزعيم
             if (pRect.intersects(bossRect)) {
                 player.setY(player.getY() - 30); // ارتداد
-                soundManager.playSound("explosion");
+                soundManager.playSound("explosion"); // صوت ارتطام
+
                 if (player.isShieldActive) {
                     boss.takeDamage();
                 } else {
-                    player.setHealth(player.getHealth() - 40);
-                    if (player.getHealth() <= 0) {
-                        player.setHealth(0);
-                        player.isDying = true;
-                    }
+                    playerTakeDamage(40);
                     boss.takeDamage();
                 }
             }
@@ -534,7 +705,7 @@ public class GameManager {
                         score += 50;
                         spawnRandomItem(e.getX(), e.getY());
                         e.startDeath();
-                        soundManager.playSound("explosion");
+                        soundManager.playSound("explosion"); // صوت الانفجار
                     }
                 }
             }
@@ -571,7 +742,7 @@ public class GameManager {
                                 score += 50;
                                 spawnRandomItem(e.getX(), e.getY());
                                 e.startDeath();
-                                soundManager.playSound("explosion");
+                                soundManager.playSound("explosion"); // صوت الانفجار
                             }
                             break;
                         }
@@ -585,11 +756,7 @@ public class GameManager {
                     if (!player.isShieldActive) {
                         // هنا ممكن نستخدم playerTakeDamage بس الرصاصة بتختفي أصلاً، فالطريقة القديمة شغالة كويس
                         player.setHealth(player.getHealth() - 2);
-                        if (player.getHealth() <= 0) {
-                            player.setHealth(0);
-                            player.isDying = true;
-                            soundManager.playSound("explosion");
-                        }
+                        playerTakeDamage(2);
                     }
                 }
             }
@@ -601,32 +768,56 @@ public class GameManager {
         for (Enemy e : enemies) {
             // إضافة شرط !e.isDying
             if (e.isAlive() && !e.isDying && pRect.intersects(e.getBounds())) {
-
+                score += 50;
                 // العدو هيموت لأنه خبط في اللاعب
                 e.startDeath();
-                soundManager.playSound("explosion");
-                if (player.isShieldActive) {
-                    score += 50;
-                } else {
+                soundManager.playSound("explosion"); // صوت الانفجار
+
+                if (!player.isShieldActive) {
+                    playerTakeDamage(5);
                     // اللاعب يتضرر
-                    playerTakeDamage();
                 }
             }
         }
 
         // =================================================================
-        // F. التقاط الهدايا (Items)
+        // F. التقاط الهدايا (Items) - (تعديل الأصوات هنا)
         // =================================================================
         for (int i = 0; i < items.size(); i++) {
             Item item = items.get(i);
             if (pRect.intersects(item.getBounds())) {
                 applyItem(item.getType());
-                soundManager.playSound("powerup");
+
+                // تشغيل الصوت المناسب حسب النوع
+                if (item.getType() == Item.ItemType.GOLD_COIN) {
+                    soundManager.playSound("coin");
+                } else {
+                    soundManager.playSound("powerup"); // للقلب والترقية
+                }
+
                 items.remove(i);
                 i--;
             }
         }
-    }    private void handleBossDefeat() { bossActive = false; boss = null; score += 500; enemies.clear(); activeMiddleEnemies.clear(); bullets.clear(); isLevelTransitioning = true; player.triggerFlyOff(); }
+    }
+
+
+    private void handleBossDefeat() {
+        bossActive = false;
+        boss = null;
+        score += 500;
+
+        // تنظيف الشاشة من الأعداء والرصاص والهدايا
+        enemies.clear();
+        activeMiddleEnemies.clear();
+        bullets.clear();
+        items.clear(); // يفضل مسح الهدايا أيضاً
+
+        // تفعيل وضع الانتقال
+        isLevelTransitioning = true;
+        player.triggerFlyOff();
+
+    }
     // دالة لرسم واجهة المستخدم (HUD) - البار الثابت
     private void drawPlayerHUD(GL gl) {
         // نوقف التكستشر عشان نرسم ألوان سادة
@@ -678,7 +869,9 @@ public class GameManager {
         // نرجع اللون للأبيض عشان الصور متتأثرش بالأخضر
         gl.glColor3f(1, 1, 1);
     }
+
     private void startNextLevel() {
+        showLevelScreen=false;
         isLevelTransitioning = false;
         currentLevel++;
         waveStep = 0;
@@ -710,11 +903,12 @@ public class GameManager {
         if (currentLevel > 3) gameWon = true;
         player.resetAbilities();
     }
+
     // دالة مساعدة لاختيار صورة عشوائية للأعداء (من 21 لـ 23)
     private int getRandomEnemyTexture() {
         // المصفوفة تبدأ بـ 21 (enem1) وتنتهي بـ 23 (enem3)
         // Math.random() * 3 يعطي 0 أو 1 أو 2
-        return 21 + (int)(Math.random() * 3);
+        return 21 + (int) (Math.random() * 3);
     }
 
     private void spawnContinuousRandomEnemies() {
@@ -743,15 +937,14 @@ public class GameManager {
                 Enemy.TypesOfEnemies type = (typeRand < 0.4) ? Enemy.TypesOfEnemies.STRAIGHT :
                         (typeRand < 0.7) ? Enemy.TypesOfEnemies.CHASER :
                                 Enemy.TypesOfEnemies.CIRCLE_PATH;
-                float spawnX = 50 + (float)(Math.random() * 700);
+                float spawnX = 50 + (float) (Math.random() * 700);
 
                 // الكود زي ما هو بالظبط عشان منبوظش الرسم او البار
                 enemies.add(new Enemy(spawnX, 700, 60, type, player, getRandomEnemyTexture()));
-            }
-            else {
+            } else {
                 // توليد سرب (Squad)
                 if (Math.random() < 0.5) {
-                    float centerX = 150 + (float)(Math.random() * 500);
+                    float centerX = 150 + (float) (Math.random() * 500);
                     spawnSquadV(centerX, 750, 5);
                 } else {
                     boolean fromLeft = Math.random() < 0.5;
@@ -768,6 +961,7 @@ public class GameManager {
             lastRandomSpawnTime = currentTime;
         }
     }
+
     private void spawnSquadV(float centerX, float startY, int count) {
         // عشان السرب كله يبقى نفس الشكل، نختار الصورة مرة واحدة بره اللوب
         int squadTexture = getRandomEnemyTexture();
@@ -778,6 +972,7 @@ public class GameManager {
             enemies.add(new Enemy(centerX + offsetX, startY + offsetY, 60, Enemy.TypesOfEnemies.SQUAD_V, player, squadTexture));
         }
     }
+
     public void resetGame() {
         // إعادة ضبط اللاعب
         player.setHealth(Player.MAX_HEALTH);
@@ -815,79 +1010,172 @@ public class GameManager {
             enemies.add(new Enemy(startX, startY, 60, type, player, squadTexture));
         }
     }
-    public void fireFanShots(float startX, float startY) { int[] angles = {-30, -15, 0, 15, 30};
-        float bulletSpeed = 7.0f; for (int angle : angles) { double rad = Math.toRadians(angle);
-            float dx = (float) (bulletSpeed * Math.sin(rad)); float dy = (float) (-bulletSpeed * Math.cos(rad));
-            bullets.add(new Bullet(startX, startY - 20, dx, dy, true,6)); } }
-    public void fireHomingShot(float startX, float startY) { float bulletSpeed = 8.0f; float dx = (player.getX() + player.getWidth()/2) - startX;
-        float dy = (player.getY() + player.getHeight()/2) - startY; double angle = Math.atan2(dy, dx);
-        bullets.add(new Bullet(startX, startY, (float)(bulletSpeed * Math.cos(angle)), (float)(bulletSpeed * Math.sin(angle)), true,6)); }
-    private void enemyShootPattern(Enemy e) { float ex = e.getX() + e.getWidth()/2; float ey = e.getY();
-        if (e.getType() == Enemy.TypesOfEnemies.CIRCLE_PATH) { for (int k = 0; k < 360; k += 60) { float rad = (float) Math.toRadians(k);
-            bullets.add(new Bullet(ex, ey, (float)Math.cos(rad)*5, (float)Math.sin(rad)*5, true,6)); } } else { float dx = (player.getX() + player.getWidth()/2) - ex; float dy = (player.getY() + player.getHeight()/2) - ey; float len = (float) Math.sqrt(dx*dx + dy*dy); bullets.add(new Bullet(ex, ey, (dx/len)*7, (dy/len)*7, true,6)); } }
-    private void spawnRandomItem(float x, float y) { if (Math.random() > 0.35) return;
-        int rand = new Random().nextInt(100); Item.ItemType type = Item.ItemType.GOLD_COIN;
-        if (currentLevel == 1) { if (rand < 40) type = Item.ItemType.HEALTH; else if (rand < 70) type = Item.ItemType.RAPID_FIRE; }
-        else { if (rand < 30) type = Item.ItemType.RAPID_FIRE; else if (rand < 50) type = Item.ItemType.HEALTH; }
-        items.add(new Item(x, y, type)); }
-    private void applyItem(Item.ItemType type) { switch (type) { case HEALTH: player.setHealth(Math.min(Player.MAX_HEALTH, player.getHealth() + 50)); break; case RAPID_FIRE: player.upgradeWeapon(); break; case GOLD_COIN: score += 100; break; } }
+
+    public void fireFanShots(float startX, float startY) {
+        int[] angles = {-30, -15, 0, 15, 30};
+        float bulletSpeed = 7.0f;
+        for (int angle : angles) {
+            double rad = Math.toRadians(angle);
+            float dx = (float) (bulletSpeed * Math.sin(rad));
+            float dy = (float) (-bulletSpeed * Math.cos(rad));
+            bullets.add(new Bullet(startX, startY - 20, dx, dy, true, 6));
+        }
+    }
+
+    public void fireHomingShot(float startX, float startY) {
+        float bulletSpeed = 8.0f;
+        float dx = (player.getX() + player.getWidth() / 2) - startX;
+        float dy = (player.getY() + player.getHeight() / 2) - startY;
+        double angle = Math.atan2(dy, dx);
+        bullets.add(new Bullet(startX, startY, (float) (bulletSpeed * Math.cos(angle)), (float) (bulletSpeed * Math.sin(angle)), true, 6));
+    }
+
+    private void enemyShootPattern(Enemy e) {
+        float ex = e.getX() + e.getWidth() / 2;
+        float ey = e.getY();
+        if (e.getType() == Enemy.TypesOfEnemies.CIRCLE_PATH) {
+            for (int k = 0; k < 360; k += 60) {
+                float rad = (float) Math.toRadians(k);
+                bullets.add(new Bullet(ex, ey, (float) Math.cos(rad) * 5, (float) Math.sin(rad) * 5, true, 6));
+            }
+        } else {
+            float dx = (player.getX() + player.getWidth() / 2) - ex;
+            float dy = (player.getY() + player.getHeight() / 2) - ey;
+            float len = (float) Math.sqrt(dx * dx + dy * dy);
+            bullets.add(new Bullet(ex, ey, (dx / len) * 7, (dy / len) * 7, true, 6));
+        }
+    }
+
+    private void spawnRandomItem(float x, float y) {
+        if (Math.random() > 0.35) return;
+        int rand = new Random().nextInt(100);
+        Item.ItemType type = Item.ItemType.GOLD_COIN;
+        if (currentLevel == 1) {
+            if (rand < 40) type = Item.ItemType.HEALTH;
+            else if (rand < 70) type = Item.ItemType.RAPID_FIRE;
+        } else {
+            if (rand < 30) type = Item.ItemType.RAPID_FIRE;
+            else if (rand < 50) type = Item.ItemType.HEALTH;
+        }
+        items.add(new Item(x, y, type));
+    }
+
+    private void applyItem(Item.ItemType type) {
+        switch (type) {
+            case HEALTH:
+                player.setHealth(Math.min(Player.MAX_HEALTH, player.getHealth() + 50));
+                break;
+            case RAPID_FIRE:
+                player.upgradeWeapon();
+                break;
+            case GOLD_COIN:
+                score += 100;
+                break;
+        }
+    }
+
     public void playerShoot() {
-        // حساب نقطة انطلاق الرصاصة (منتصف اللاعب)
+        // حساب نقطة انطلاق الرصاصة
         float sx = player.getX() + player.getWidth() / 2 - 5;
         float sy = player.getY() + player.getHeight();
 
-        // رقم صورة طلقة اللاعب (حسب ترتيب مصفوفة الصور في GameListener)
-        // تأكد أن رقم 6 هو صورة "Bullet v6.png" عندك
         int playerBulletIndex = 25;
 
+        // تشغيل الصوت مرة واحدة أساسية (عشان نضمن إن فيه صوت هيطلع فوراً)
+        // ده بيحل مشكلة "التأخير" اللي قلقت منها
+        soundManager.playSound("Player_laser");
+
         if (player.weaponLevel == 1) {
-            // سلاح مستوى 1: طلقة واحدة
             bullets.add(new Bullet(sx, sy, 0, 15, false, playerBulletIndex));
         }
         else if (player.weaponLevel == 2) {
-            // سلاح مستوى 2: طلقتين متوازيتين
             bullets.add(new Bullet(sx - 15, sy, 0, 15, false, playerBulletIndex));
             bullets.add(new Bullet(sx + 15, sy, 0, 15, false, playerBulletIndex));
+
+            // (اختياري وغير مستحب) لو عايز تأكيد صوتي، ممكن تشغله تاني هنا
+            // بس ده هيعمل صوت عالي جداً
+            // soundManager.playSound("Player_laser");
         }
         else {
-            // سلاح مستوى 3: ثلاث طلقات (واحدة مستقيمة واتنين بزاوية)
-            bullets.add(new Bullet(sx, sy, 0, 15, false, playerBulletIndex));      // النص
-            bullets.add(new Bullet(sx, sy, -4, 14, false, playerBulletIndex));     // شمال
-            bullets.add(new Bullet(sx, sy, 4, 14, false, playerBulletIndex));      // يمين
+            bullets.add(new Bullet(sx, sy, 0, 15, false, playerBulletIndex));
+            bullets.add(new Bullet(sx, sy, -4, 14, false, playerBulletIndex));
+            bullets.add(new Bullet(sx, sy, 4, 14, false, playerBulletIndex));
+
+            // (اختياري وغير مستحب)
+            // soundManager.playSound("Player_laser");
         }
-        soundManager.playSound("player_laser");
-    }    public void fireLaser() {
+    }
+
+    public void fireLaser() {
         if (player.canUseLaser && !player.isLaserBeamActive) {
             player.activateLaserBeam();
-            soundManager.playSound("shield_active"); // Reusing shield sound or add specific laser sound
+
+            // --- تشغيل صوت الليزر الخاص ---
+            soundManager.playSound("laser");
         }
     }
     public void activateShield() {
-        // كان مكتوب player.activateShieldManual(); وده غلط
-        // الصح:
+        // 1. التأكد من وجود اللاعب وأنه ليس ميتاً
         if (player != null && !player.isDying) {
+
+            // 2. التحقق من أن الدرع متاح وغير مفعل حالياً (عشان الصوت ما يشتغلش عالفاضي)
             if (player.canUseShield && !player.isShieldActive) {
+
+                // 3. تفعيل الدرع (يقوم بخصم القدرة داخل كلاس Player)
                 player.activateShield();
-                soundManager.playSound("shield_active");
+
+                // 4. تشغيل صوت الدرع
+                soundManager.playSound("shield");
             }
-            // استدعاء دالة الـ Cooldown
         }
     }
-    private void drawPlayerPowerIndicators(GL gl) { float baseX = 20; float baseY = 20;
+
+    private void drawPlayerPowerIndicators(GL gl) {
+        float baseX = 20;
+        float baseY = 20;
         gl.glColor3f(player.isShieldAvailable ? 0 : 0.3f, player.isShieldAvailable ? 1 : 0.3f, player.isShieldAvailable ? 1 : 0.3f);
-        gl.glBegin(GL.GL_QUADS); gl.glVertex2f(baseX, baseY); gl.glVertex2f(baseX + 20, baseY);
-        gl.glVertex2f(baseX + 20, baseY + 20); gl.glVertex2f(baseX, baseY + 20); gl.glEnd();
+        gl.glBegin(GL.GL_QUADS);
+        gl.glVertex2f(baseX, baseY);
+        gl.glVertex2f(baseX + 20, baseY);
+        gl.glVertex2f(baseX + 20, baseY + 20);
+        gl.glVertex2f(baseX, baseY + 20);
+        gl.glEnd();
         gl.glColor3f(player.isLaserAvailable ? 0 : 0.3f, player.isLaserAvailable ? 1 : 0.3f, player.isLaserAvailable ? 0 : 0.3f);
-        gl.glBegin(GL.GL_QUADS); gl.glVertex2f(baseX + 30, baseY);
-        gl.glVertex2f(baseX + 50, baseY); gl.glVertex2f(baseX + 50, baseY + 20); gl.glVertex2f(baseX + 30, baseY + 20);
-        gl.glEnd(); gl.glColor3f(player.specialAmmo > 0 ? 1 : 0.3f, player.specialAmmo > 0 ? 0.8f : 0.3f, 0); gl.glBegin(GL.GL_QUADS);
-        gl.glVertex2f(baseX + 60, baseY); gl.glVertex2f(baseX + 80, baseY); gl.glVertex2f(baseX + 80, baseY + 20);
-        gl.glVertex2f(baseX + 60, baseY + 20); gl.glEnd(); }
-    private void drawStartScreen(GL gl) { gl.glColor3f(0.1f, 0.1f, 0.1f);
-        gl.glBegin(GL.GL_QUADS); gl.glVertex2f(0, 0); gl.glVertex2f(800, 0);
-        gl.glVertex2f(800, 600); gl.glVertex2f(0, 600); gl.glEnd(); gl.glColor3f(0, 1, 0);
-        gl.glBegin(GL.GL_TRIANGLES); gl.glVertex2f(350, 250); gl.glVertex2f(350, 350);
-        gl.glVertex2f(450, 300); gl.glEnd(); }
-    private void spawnSpecialBullets() { for (int i = 0; i < 3; i++)
-        bullets.add(new Bullet((float) (Math.random() * 800), 0, (float) (Math.random() * 6) - 3, 10, false,6)); }
+        gl.glBegin(GL.GL_QUADS);
+        gl.glVertex2f(baseX + 30, baseY);
+        gl.glVertex2f(baseX + 50, baseY);
+        gl.glVertex2f(baseX + 50, baseY + 20);
+        gl.glVertex2f(baseX + 30, baseY + 20);
+        gl.glEnd();
+        gl.glColor3f(player.specialAmmo > 0 ? 1 : 0.3f, player.specialAmmo > 0 ? 0.8f : 0.3f, 0);
+        gl.glBegin(GL.GL_QUADS);
+        gl.glVertex2f(baseX + 60, baseY);
+        gl.glVertex2f(baseX + 80, baseY);
+        gl.glVertex2f(baseX + 80, baseY + 20);
+        gl.glVertex2f(baseX + 60, baseY + 20);
+        gl.glEnd();
+    }
+
+    private void drawStartScreen(GL gl) {
+        gl.glColor3f(0.1f, 0.1f, 0.1f);
+        gl.glBegin(GL.GL_QUADS);
+        gl.glVertex2f(0, 0);
+        gl.glVertex2f(800, 0);
+        gl.glVertex2f(800, 600);
+        gl.glVertex2f(0, 600);
+        gl.glEnd();
+        gl.glColor3f(0, 1, 0);
+        gl.glBegin(GL.GL_TRIANGLES);
+        gl.glVertex2f(350, 250);
+        gl.glVertex2f(350, 350);
+        gl.glVertex2f(450, 300);
+        gl.glEnd();
+    }
+
+    private void spawnSpecialBullets() {
+
+        for (int i = 0; i < 3; i++)
+            bullets.add(new Bullet((float) (Math.random() * 800), 0, (float) (Math.random() * 6) - 3, 10, false, 6));
+    }
+
 }

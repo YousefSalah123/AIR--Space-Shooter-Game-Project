@@ -1,19 +1,25 @@
 package mygame.GUI;
 
+import mygame.Game;
+import mygame.engine.HighScoreManagment;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.geom.Path2D;
 import java.io.InputStream;
-import java.util.Objects;
+import java.util.List;
 
 public class ArcadeGameUI extends JFrame {
 
     private CardLayout cardLayout;
     private JPanel mainPanel;
     private Font gameFont;
+    private JPanel highScoresPanel;
+    private GameCredits creditsPanel;
 
     public ArcadeGameUI() {
         setTitle("Arcade Air Mission");
@@ -27,33 +33,31 @@ public class ArcadeGameUI extends JFrame {
 
         loadGameFont();
 
-        // إنشاء الشاشات المختلفة
+        // Initialize Panels
         JPanel mainMenu = createMainMenuPanel();
         JPanel singlePlayer = createSinglePlayerPanel();
         JPanel multiPlayer = createMultiPlayerPanel();
         JPanel instructions = createInstructionsPanel();
-        JPanel highScores = createHighScoresPanel();
+        highScoresPanel = createHighScoresPanel();
 
-        // إضافتها إلى الـ mainPanel
+        creditsPanel = new GameCredits(e -> cardLayout.show(mainPanel, "MainMenu"));
+
+        // Add to CardLayout
         mainPanel.add(mainMenu, "MainMenu");
         mainPanel.add(singlePlayer, "SinglePlayer");
         mainPanel.add(multiPlayer, "MultiPlayer");
         mainPanel.add(instructions, "Instructions");
-        mainPanel.add(highScores, "HighScores");
+        mainPanel.add(highScoresPanel, "HighScores");
+        mainPanel.add(creditsPanel, "Credits");
 
         add(mainPanel);
     }
 
-    /**
-     * تحميل الخط المخصص
-     */
     private void loadGameFont() {
         try {
-            InputStream fontStream = getClass().getResourceAsStream("/Assets/Front.png");
-            // ملاحظة: هذا المسار يبدو وكأنه لصورة وليس لملف خط، إذا كان لديك ملف .ttf ضعه هنا
+            InputStream fontStream = getClass().getResourceAsStream("Assets//background3.png");
             if (fontStream != null) {
-                // gameFont = Font.createFont(Font.TRUETYPE_FONT, fontStream).deriveFont(22f);
-                gameFont = new Font("Verdana", Font.BOLD, 22); // fallback
+                gameFont = new Font("Verdana", Font.BOLD, 22);
             } else {
                 gameFont = new Font("Verdana", Font.BOLD, 22);
             }
@@ -62,26 +66,85 @@ public class ArcadeGameUI extends JFrame {
         }
     }
 
-    /**
-     * ----------- القـــــــــائمة الرئيسية -----------
-     */
-    private JPanel createMainMenuPanel() {
-        // التصحيح: استخدام مسار نسبي، واستخدام try-catch لتجنب توقف البرنامج إذا لم توجد الصورة
-        ImageIcon bgIcon = null;
-        try {
-            // لاحظ المسار يبدأ بـ / ثم اسم المجلد
-            java.net.URL imgURL = getClass().getResource("/Assets/Front.png");
-            if (imgURL != null) {
-                bgIcon = new ImageIcon(imgURL);
-            } else {
-                // محاولة بديلة في حال كان المجلد خارج الـ src
-                bgIcon = new ImageIcon("Assets/Front.png");
-            }
-        } catch (Exception e) {
-            System.err.println("Error loading Front.png: " + e.getMessage());
-        }
+    // ==========================================
+    // ⭐ دالة عرض رسالة التحذير (معدلة للتوسيط)
+    // ==========================================
+    private void showCustomWarning(String message) {
+        JDialog warningDialog = new JDialog(this, "WARNING", true);
+        warningDialog.setUndecorated(true);
+        warningDialog.setBackground(new Color(0, 0, 0, 0));
+        warningDialog.setSize(400, 250);
+        warningDialog.setLocationRelativeTo(this);
 
-        Image bgImage = (bgIcon != null) ? bgIcon.getImage() : null;
+        JPanel panel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                int w = getWidth();
+                int h = getHeight();
+
+                Path2D path = new Path2D.Double();
+                int c = 20;
+                path.moveTo(c, 0);
+                path.lineTo(w - c, 0);
+                path.lineTo(w, c);
+                path.lineTo(w, h - c);
+                path.lineTo(w - c, h);
+                path.lineTo(c, h);
+                path.lineTo(0, h - c);
+                path.lineTo(0, c);
+                path.closePath();
+
+                g2.setColor(new Color(40, 0, 0, 230)); // خلفية حمراء داكنة
+                g2.fill(path);
+
+                g2.setColor(new Color(255, 50, 50)); // إطار أحمر نيون
+                g2.setStroke(new BasicStroke(3f));
+                g2.draw(path);
+            }
+        };
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setOpaque(false);
+
+        // العنوان
+        JLabel iconLabel = new JLabel("ACCESS DENIED");
+        iconLabel.setFont(gameFont.deriveFont(Font.BOLD, 22f));
+        iconLabel.setForeground(new Color(255, 50, 50));
+        iconLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        // ⭐ الرسالة (تم ضبط التوسيط هنا)
+        JLabel msgLabel = new JLabel("<html><div style='text-align: center;'>" + message + "</div></html>", SwingConstants.CENTER);
+        msgLabel.setFont(new Font("Monospaced", Font.BOLD, 18)); // خط أوضح
+        msgLabel.setForeground(Color.WHITE);
+        msgLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        msgLabel.setHorizontalAlignment(SwingConstants.CENTER); // توسيط أفقي صريح
+        msgLabel.setBorder(BorderFactory.createEmptyBorder(15, 10, 15, 10));
+
+        // الزر (ACKNOWLEDGE لتفعيل اللون الأحمر)
+        JButton btnOk = createGameButton("OK");
+        btnOk.setPreferredSize(new Dimension(200, 40));
+        btnOk.setForeground(new Color(255, 100, 100));
+        btnOk.addActionListener(e -> warningDialog.dispose());
+
+        panel.add(Box.createVerticalGlue());
+        panel.add(iconLabel);
+        panel.add(msgLabel);
+        panel.add(Box.createVerticalStrut(10));
+        panel.add(btnOk);
+        panel.add(Box.createVerticalGlue());
+
+        warningDialog.add(panel);
+        warningDialog.setVisible(true);
+    }
+
+    // ==========================================
+    // باقي الكود كما هو
+    // ==========================================
+
+    private JPanel createMainMenuPanel() {
+        ImageIcon bgIcon = new ImageIcon(getClass().getResource("Assets//background3.png"));
+        Image bgImage = bgIcon.getImage();
 
         JPanel panel = new JPanel() {
             @Override
@@ -100,23 +163,32 @@ public class ArcadeGameUI extends JFrame {
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setOpaque(false);
 
-
+        JLabel title = new JLabel("GALACTIC AIR FORCE");
+        title.setAlignmentX(Component.CENTER_ALIGNMENT);
+        title.setForeground(new Color(0x00FFFF));
+        title.setFont(gameFont.deriveFont(36f));
+        title.setBorder(BorderFactory.createEmptyBorder(40, 0, 30, 0));
 
         JButton btnSingle = createGameButton("SINGLE PLAYER");
         JButton btnMulti = createGameButton("MULTIPLAYER");
         JButton btnScores = createGameButton("HIGH SCORES");
         JButton btnInstr = createGameButton("INSTRUCTIONS");
-        JButton btnCredits = createGameButton("CREDITS"); // الزر الجديد
+        JButton btnCredits = createGameButton("CREDITS");
         JButton btnExit = createGameButton("EXIT");
 
         btnSingle.addActionListener(e -> cardLayout.show(mainPanel, "SinglePlayer"));
         btnMulti.addActionListener(e -> cardLayout.show(mainPanel, "MultiPlayer"));
-        btnScores.addActionListener(e -> cardLayout.show(mainPanel, "HighScores"));
+        btnScores.addActionListener(e -> {
+            mainPanel.remove(highScoresPanel);
+            highScoresPanel = createHighScoresPanel();
+            mainPanel.add(highScoresPanel, "HighScores");
+            cardLayout.show(mainPanel, "HighScores");
+        });
         btnInstr.addActionListener(e -> cardLayout.show(mainPanel, "Instructions"));
         btnCredits.addActionListener(e -> {
-            SwingUtilities.invokeLater(() -> new GameCreditsFrame().setVisible(true));
+            creditsPanel.resetAnimations();
+            cardLayout.show(mainPanel, "Credits");
         });
-
         btnExit.addActionListener(e -> System.exit(0));
 
         JPanel buttonsPanel = new JPanel();
@@ -130,11 +202,12 @@ public class ArcadeGameUI extends JFrame {
         buttonsPanel.add(Box.createVerticalStrut(15));
         buttonsPanel.add(btnInstr);
         buttonsPanel.add(Box.createVerticalStrut(15));
-        buttonsPanel.add(btnCredits); // هنا أضف الزر الجديد
+        buttonsPanel.add(btnCredits);
         buttonsPanel.add(Box.createVerticalStrut(15));
         buttonsPanel.add(btnExit);
 
         panel.add(Box.createVerticalGlue());
+        panel.add(title);
         panel.add(Box.createVerticalStrut(20));
         panel.add(buttonsPanel);
         panel.add(Box.createVerticalGlue());
@@ -142,17 +215,12 @@ public class ArcadeGameUI extends JFrame {
         return panel;
     }
 
-    // أضف هذا المتغير داخل كلاس ArcadeGameUI
     private java.awt.event.ActionListener startGameAction;
 
     public void setStartGameAction(java.awt.event.ActionListener action) {
         this.startGameAction = action;
     }
 
-
-    /**
-     * ----------- شاشة اللاعب الواحد -----------
-     */
     private JPanel createSinglePlayerPanel() {
         ImageIcon bgIcon = new ImageIcon(getClass().getResource("Assets//backgroundEnterInfo2.png"));
         Image bgImage = bgIcon.getImage();
@@ -181,6 +249,16 @@ public class ArcadeGameUI extends JFrame {
         JButton back = createGameButton("BACK");
 
         start.addActionListener(e -> {
+            String playerName = nameField.getText().trim();
+
+            if (playerName.isEmpty()) {
+                // ⭐ النص المطلوب هنا
+                showCustomWarning("PLEASE ENTER YOUR NAME");
+                return;
+            }
+
+            Game.setPlayerName(playerName);
+
             if (startGameAction != null) {
                 startGameAction.actionPerformed(e);
             } else {
@@ -205,9 +283,6 @@ public class ArcadeGameUI extends JFrame {
         return panel;
     }
 
-    /**
-     * ----------- شاشة اللعب الجماعي -----------
-     */
     private JPanel createMultiPlayerPanel() {
         ImageIcon bgIcon = new ImageIcon(getClass().getResource("Assets//backgroundEnterInfo2.png"));
         Image bgImage = bgIcon.getImage();
@@ -245,10 +320,19 @@ public class ArcadeGameUI extends JFrame {
         JButton back = createGameButton("BACK");
 
         start.addActionListener(e -> {
+            String player1 = tf1.getText().trim();
+            String player2 = tf2.getText().trim();
+
+            if (player1.isEmpty() || player2.isEmpty()) {
+                showCustomWarning("BOTH PILOTS MUST IDENTIFY!");
+                return;
+            }
+
             JPanel gamePanel = createGamePanel(true);
             mainPanel.add(gamePanel, "GamePanel");
             cardLayout.show(mainPanel, "GamePanel");
         });
+
         back.addActionListener(e -> cardLayout.show(mainPanel, "MainMenu"));
 
         panel.add(Box.createVerticalGlue());
@@ -286,9 +370,6 @@ public class ArcadeGameUI extends JFrame {
         return panel;
     }
 
-    /**
-     * ----------- شاشة التعليمات -----------
-     */
     private JPanel createInstructionsPanel() {
         ImageIcon instIcon = new ImageIcon(getClass().getResource("Assets//instruction3.png"));
         Image instImage = instIcon.getImage();
@@ -322,9 +403,6 @@ public class ArcadeGameUI extends JFrame {
         return panel;
     }
 
-    /**
-     * ----------- شاشة أعلى النتائج (High Scores) -----------
-     */
     private JPanel createHighScoresPanel() {
         ImageIcon bgIcon = new ImageIcon(getClass().getResource("Assets//backgroundEnterInfo.png"));
         Image bgImage = bgIcon.getImage();
@@ -345,26 +423,31 @@ public class ArcadeGameUI extends JFrame {
         title.setBorder(BorderFactory.createEmptyBorder(25, 0, 20, 0));
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        String[] topPlayers = {
-                "1.  NovaBlaster ............  9500",
-                "2.  StarFalcon .............  8600",
-                "3.  AstroRider .............  8020",
-                "4.  SkyEagle ...............  7450",
-                "5.  CosmicX ................  7200"
-        };
+        List<HighScoreManagment.ScoreEntry> scores = HighScoreManagment.loadScores();
 
         JPanel scoresPanel = new JPanel();
         scoresPanel.setLayout(new BoxLayout(scoresPanel, BoxLayout.Y_AXIS));
         scoresPanel.setOpaque(false);
         scoresPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        for (String player : topPlayers) {
-            JLabel scoreLabel = new JLabel(player, SwingConstants.CENTER);
-            scoreLabel.setForeground(new Color(200, 240, 255));
-            scoreLabel.setFont(gameFont.deriveFont(Font.PLAIN, 22f));
-            scoreLabel.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
-            scoreLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-            scoresPanel.add(scoreLabel);
+        if (scores.isEmpty()) {
+            JLabel empty = new JLabel("NO RECORDS FOUND", SwingConstants.CENTER);
+            empty.setForeground(new Color(200, 240, 255));
+            empty.setFont(gameFont.deriveFont(Font.PLAIN, 22f));
+            scoresPanel.add(empty);
+        } else {
+            int rank = 1;
+            for (HighScoreManagment.ScoreEntry entry : scores) {
+                String text = String.format("%d.  %-12s  ............  %d", rank, entry.name, entry.score);
+                JLabel scoreLabel = new JLabel(text, SwingConstants.CENTER);
+                scoreLabel.setForeground(new Color(200, 240, 255));
+                scoreLabel.setFont(gameFont.deriveFont(Font.PLAIN, 22f));
+                scoreLabel.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
+                scoreLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                scoresPanel.add(scoreLabel);
+                rank++;
+                if (rank > HighScoreManagment.MAX_SCORES) break;
+            }
         }
 
         JPanel centerPanel = new JPanel();
@@ -396,9 +479,6 @@ public class ArcadeGameUI extends JFrame {
         return panel;
     }
 
-    /**
-     * ----------- شاشة اللعب أثناء الطيران (Game Panel) -----------
-     */
     private JPanel createGamePanel(boolean isMultiplayer) {
         JPanel gamePanel = new JPanel();
         gamePanel.setLayout(new OverlayLayout(gamePanel));
@@ -423,23 +503,15 @@ public class ArcadeGameUI extends JFrame {
         canvas.setPreferredSize(new Dimension(900, 600));
         gamePanel.add(canvas);
 
-        // تنبيه: كلاس GameHUD غير موجود في الكود المرسل، لذا تم تعليقه لتجنب الأخطاء
-        // GameHUD hud = new GameHUD(isMultiplayer);
-        // hud.setPreferredSize(new Dimension(900, 600));
-        // gamePanel.add(hud);
-
         JButton back = new JButton("BACK TO MENU");
         back.setAlignmentX(Component.CENTER_ALIGNMENT);
         back.setMaximumSize(new Dimension(200, 40));
         back.addActionListener(e -> cardLayout.show(mainPanel, "MainMenu"));
-        gamePanel.add(back); // إضافة الزر مباشرة للبانل بدلاً من HUD
+        gamePanel.add(back);
 
         return gamePanel;
     }
 
-    /**
-     * ----------- الزر المخصص (تم التعديل عليه) -----------
-     */
     private JButton createGameButton(String text) {
         JButton btn = new JButton(text) {
             @Override
@@ -456,9 +528,16 @@ public class ArcadeGameUI extends JFrame {
                 p.addPoint(20, h);
                 p.addPoint(0, h / 2);
 
-                g2.setColor(new Color(0, 20, 40, 180));
-                g2.fillPolygon(p);
-                g2.setColor(new Color(0x00FFFF));
+                if (getForeground().getRed() > 200 && getForeground().getBlue() < 150) {
+                    g2.setColor(new Color(60, 0, 0, 180));
+                    g2.fillPolygon(p);
+                    g2.setColor(new Color(255, 50, 50));
+                } else {
+                    g2.setColor(new Color(0, 20, 40, 180));
+                    g2.fillPolygon(p);
+                    g2.setColor(new Color(0x00FFFF));
+                }
+
                 g2.setStroke(new BasicStroke(2));
                 g2.drawPolygon(p);
 
@@ -466,9 +545,7 @@ public class ArcadeGameUI extends JFrame {
                 g2.dispose();
             }
         };
-        // ✅ هذا هو السطر الذي يزيل المستطيل حول الكلمة
         btn.setFocusPainted(false);
-
         btn.setOpaque(false);
         btn.setContentAreaFilled(false);
         btn.setBorderPainted(false);
@@ -487,73 +564,17 @@ public class ArcadeGameUI extends JFrame {
 
             @Override
             public void mouseExited(MouseEvent e) {
-                btn.setForeground(new Color(200, 240, 255));
+                // ⭐ هنا الشرط مهم عشان اللون يرجع أحمر لو كان زر التحذير
+                if (text.equals("ACKNOWLEDGE")) {
+                    btn.setForeground(new Color(255, 100, 100));
+                } else {
+                    btn.setForeground(new Color(200, 240, 255));
+                }
             }
         });
         return btn;
     }
 
-    /**
-     * زر ناعم نيون أزرق
-     */
-    private JButton createNameScreenButton(String text) {
-        final boolean[] hover = {false};
-        JButton btn = new JButton(text) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                int w = getWidth(), h = getHeight(), arc = 20;
-
-                GradientPaint gp = new GradientPaint(
-                        0, 0,
-                        hover[0] ? new Color(0x33CCFF) : new Color(0x003366),
-                        w, h,
-                        hover[0] ? new Color(0x99FFFF) : new Color(0x005599)
-                );
-                g2.setPaint(gp);
-                g2.fillRoundRect(0, 0, w, h, arc, arc);
-
-                g2.setColor(hover[0] ? new Color(0x99FFFF) : new Color(0x66CCFF));
-                g2.setStroke(new BasicStroke(2.5f));
-                g2.drawRoundRect(2, 2, w - 5, h - 5, arc, arc);
-
-                g2.setFont(getFont());
-                FontMetrics fm = g2.getFontMetrics();
-                int tw = fm.stringWidth(getText());
-                int th = fm.getAscent();
-                g2.setColor(Color.WHITE);
-                g2.drawString(getText(), (w - tw) / 2, (h + th / 2) - 2);
-
-                g2.dispose();
-            }
-        };
-
-        btn.setFocusPainted(false); // موجود بالفعل هنا
-        btn.setContentAreaFilled(false);
-        btn.setOpaque(false);
-        btn.setForeground(Color.WHITE);
-        btn.setFont(gameFont.deriveFont(Font.BOLD, 18f));
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        btn.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseEntered(MouseEvent e) {
-                hover[0] = true;
-                btn.repaint();
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e) {
-                hover[0] = false;
-                btn.repaint();
-            }
-        });
-
-        return btn;
-    }
-
-    // ======= خانة إدخال فخمة =======
     class FancyTextField extends JTextField {
         private boolean focused = false;
 
@@ -588,29 +609,22 @@ public class ArcadeGameUI extends JFrame {
 
             int w = getWidth();
             int h = getHeight();
-            int arc = 25; // درجة انحناء الزوايا
+            int arc = 25;
 
-            // رسم خلفية الخانة (شفافة وغامقة)
             Color baseColor = new Color(0, 30, 60, 120);
             g2.setColor(baseColor);
             g2.fillRoundRect(0, 0, w, h, arc, arc);
 
-            // رسم الإطار (يضيء عند التركيز)
             g2.setColor(focused ? new Color(0x00FFFF) : new Color(0x007777));
             g2.setStroke(new BasicStroke(2f));
             g2.drawRoundRect(1, 1, w - 3, h - 3, arc, arc);
 
             g2.dispose();
-
-            // استدعاء السوبر لرسم النص والمؤشر (Caret)
             super.paintComponent(g);
         }
-    } // ---- نهاية كلاس FancyTextField ----
-
-    // ==========================================
-    //           دالة التشغيل الرئيسية
-    // ==========================================
-    public static void main(String[] args) {
-        new ArcadeGameUI();
     }
-} // ---- نهاية كلاس ArcadeGameUI ----
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> new ArcadeGameUI().setVisible(true));
+    }
+}
