@@ -22,29 +22,17 @@ public abstract class GameObject {
     // التعديل: نمرر مصفوفة الصور هنا
     public abstract void render(GL gl, int[] textures);
 
-    // دالة مساعدة لرسم صورة بسهولة في أي كلاس يرث من GameObject
     protected void drawTexture(GL gl, int textureId, float x, float y, float w, float h) {
         gl.glEnable(GL.GL_BLEND);
         gl.glBindTexture(GL.GL_TEXTURE_2D, textureId);
-        gl.glColor3f(1, 1, 1); // لون أبيض لضمان ظهور ألوان الصورة الأصلية
+        gl.glColor3f(1, 1, 1);
 
         gl.glPushMatrix();
         gl.glBegin(GL.GL_QUADS);
-        // النقطة (0,0) في الصورة
-        gl.glTexCoord2f(0.0f, 0.0f);
-        gl.glVertex2f(x, y + h); // OpenGL Coordinates inversion fix might be needed depending on your setup, standard is usually bottom-left
-
-        // النقطة (1,0)
-        gl.glTexCoord2f(1.0f, 0.0f);
-        gl.glVertex2f(x + w, y + h);
-
-        // النقطة (1,1)
-        gl.glTexCoord2f(1.0f, 1.0f);
-        gl.glVertex2f(x + w, y);
-
-        // النقطة (0,1)
-        gl.glTexCoord2f(0.0f, 1.0f);
-        gl.glVertex2f(x, y);
+        gl.glTexCoord2f(0.0f, 1.0f); gl.glVertex2f(x, y + h);
+        gl.glTexCoord2f(1.0f, 1.0f); gl.glVertex2f(x + w, y + h);
+        gl.glTexCoord2f(1.0f, 0.0f); gl.glVertex2f(x + w, y);
+        gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2f(x, y);
         gl.glEnd();
         gl.glPopMatrix();
 

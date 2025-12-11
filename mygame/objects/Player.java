@@ -40,7 +40,7 @@ public class Player extends GameObject {
     private long laserEndTime = 0;
 
     public Player(float x, float y) {
-        super(x, y, 50, 50);
+        super(x, y, 80, 80);
         this.speed = 8.0f;
         this.health = MAX_HEALTH;
     }
@@ -145,36 +145,62 @@ public class Player extends GameObject {
     // --- الرسم (Render) ---
     @Override
     public void render(GL gl, int[] textures) {
+        // 1. رسم الليزر لو مفعل
         if (isLaserBeamActive && !isFlyingOff && !isDying) drawLaserBeam(gl);
 
-        // منطق اختيار الصورة
         int textureToDraw;
 
+        // 2. منطق اختيار الصورة
         if (!isDying) {
-            // الحالة الطبيعية: صورة رقم 1 (Hero.png)
-            textureToDraw = textures[1];
+            // ============================================================
+            // التعديل الجديد: تغيير الصورة بناءً على نسبة الصحة الحالية
+            // ============================================================
+            float healthPercent = (float) health / (float) MAX_HEALTH;
+
+            if (healthPercent > 0.75f) {
+                textureToDraw = textures[1]; // صحة ممتازة (Hero.png)
+            } else if (healthPercent > 0.50f) {
+                textureToDraw = textures[2]; // خدوش بسيطة (Hero2.png)
+            } else if (healthPercent > 0.25f) {
+                textureToDraw = textures[3]; // متضرر (Hero3.png)
+            } else {
+                textureToDraw = textures[4]; // حالة حرجة (Hero4.png)
+            }
+
+            // عشان لما أنيميشن الموت يبدأ، يبدأ من آخر صورة كان عليها (اختياري)
+            // currentTextureIndex = (healthPercent > 0.75f) ? 1 : ...;
         } else {
-            // حالة الموت: تدرج الصور (2 -> 3 -> 4)
+            // ============================================================
+            // حالة الموت: تدرج الصور (الأنيميشن)
+            // ============================================================
             dieFrameCounter++;
             if (dieFrameCounter > dieFrameDelay) {
                 dieFrameCounter = 0;
-                // إذا كنا في 1 نذهب لـ 2، وهكذا
+
+                // التأكد من بداية الأنيميشن بشكل صحيح
+                if (currentTextureIndex < 2) currentTextureIndex = 2;
+
                 if (currentTextureIndex < 4) {
-                    currentTextureIndex++; // انتقل للصورة التالية (Hero2 -> Hero3 -> Hero4)
-                    if (currentTextureIndex < 2) currentTextureIndex = 2; // تأكيد البدء من Hero2
+                    currentTextureIndex++; // انتقل للصورة التالية
                 } else {
-                    animationFinished = true; // انتهى العرض
+                    animationFinished = true; // انتهى العرض واختفى اللاعب
                 }
             }
-            textureToDraw = textures[currentTextureIndex];
+
+            // حماية عشان مياخدش اندكس غلط
+            if (currentTextureIndex < textures.length) {
+                textureToDraw = textures[currentTextureIndex];
+            } else {
+                textureToDraw = textures[4];
+            }
         }
 
-        // رسم اللاعب (فقط إذا لم ينته الأنيميشن)
+        // 3. رسم اللاعب (فقط إذا لم ينته أنيميشن الموت)
         if (!animationFinished) {
             drawTexture(gl, textureToDraw, x, y, width, height);
         }
 
-        // رسم شعلة المحرك
+        // 4. رسم شعلة المحرك (تظهر فقط وهو حي)
         if (isFlyingOff && !isDying) {
             gl.glEnable(GL.GL_BLEND);
             gl.glColor4f(1.0f, 0.5f, 0.0f, 0.8f);
@@ -187,6 +213,7 @@ public class Player extends GameObject {
             gl.glColor3f(1,1,1);
         }
 
+        // 5. رسم البار والدرع (يظهروا فقط وهو حي ومش بيطير للنهاية)
         if (!isFlyingOff && !isDying) {
             drawHealthBar(gl);
             if (isShieldActive) drawShield(gl);
@@ -210,16 +237,36 @@ public class Player extends GameObject {
         gl.glDisable(GL.GL_BLEND);
     }
 
-    // ... (باقي دوال الرسم مثل drawHealthBar, drawShield, drawLaserBeam تبقى كما هي) ...
+    // In Player.java
     private void drawHealthBar(GL gl) {
-        float barWidth = width * 1.2f;
-        float barX = x - (width * 0.1f);
+        // 1. إيقاف التكستشر للرسم الهندسي
+        gl.glDisable(GL.GL_TEXTURE_2D);
+
+        // 2. إعدادات الحجم (نفس ستايل الأعداء: صغير ورفيع)
+        float barTotalWidth = 40f; // عرض ثابت وصغير
+        float barHeight = 4f;      // سمك رفيع
+
+        // 3. التمركز (تحت الطيارة بـ 10 بيكسل)
+        // بنحسب نقطة البداية عشان يكون في نص عرض اللاعب بالظبط
+        float barStartX = x + (width - barTotalWidth) / 2;
+        float barStartY = y - 10;
+
+        // 4. حساب النسبة
         float healthPercent = Math.max(0f, Math.min((float) health / MAX_HEALTH, 1f));
-        gl.glColor3f(0.5f, 0.5f, 0.5f);
-        gl.glBegin(GL.GL_QUADS); gl.glVertex2f(barX, y - 5); gl.glVertex2f(barX + barWidth, y - 5); gl.glVertex2f(barX + barWidth, y - 10); gl.glVertex2f(barX, y - 10); gl.glEnd();
-        gl.glColor3f(0.0f, 1.0f, 0.0f);
-        gl.glBegin(GL.GL_QUADS); gl.glVertex2f(barX, y - 5); gl.glVertex2f(barX + (barWidth * healthPercent), y - 5); gl.glVertex2f(barX + (barWidth * healthPercent), y - 10); gl.glVertex2f(barX, y - 10); gl.glEnd();
-        gl.glColor3f(1,1,1);
+
+        // 5. رسم الخلفية (أحمر غامق)
+        gl.glColor3f(0.6f, 0.0f, 0.0f);
+        gl.glRectf(barStartX, barStartY, barStartX + barTotalWidth, barStartY + barHeight);
+
+        // 6. رسم الصحة الحالية (أخضر ساطع)
+        if (healthPercent > 0) {
+            gl.glColor3f(0.0f, 1.0f, 0.0f);
+            gl.glRectf(barStartX, barStartY, barStartX + (barTotalWidth * healthPercent), barStartY + barHeight);
+        }
+
+        // 7. استعادة الألوان والتكستشر
+        gl.glColor3f(1, 1, 1);
+        gl.glEnable(GL.GL_TEXTURE_2D);
     }
     private void drawShield(GL gl) {
         gl.glEnable(GL.GL_BLEND); gl.glColor4f(0.0f, 1.0f, 1.0f, 0.4f);
@@ -228,11 +275,38 @@ public class Player extends GameObject {
         gl.glDisable(GL.GL_BLEND); gl.glColor3f(1,1,1);
     }
     private void drawLaserBeam(GL gl) {
-        gl.glEnable(GL.GL_BLEND); gl.glColor4f(1.0f, 1.0f, 1.0f, 0.9f);
-        gl.glBegin(GL.GL_QUADS); gl.glVertex2f(x + width/2 - 3, y + height); gl.glVertex2f(x + width/2 + 3, y + height); gl.glVertex2f(x + width/2 + 3, 600); gl.glVertex2f(x + width/2 - 3, 600); gl.glEnd();
-        gl.glColor4f(0.0f, 1.0f, 1.0f, 0.5f);
-        gl.glBegin(GL.GL_QUADS); gl.glVertex2f(x + width/2 - 10, y + height); gl.glVertex2f(x + width/2 + 10, y + height); gl.glVertex2f(x + width/2 + 10, 600); gl.glVertex2f(x + width/2 - 10, 600); gl.glEnd();
-        gl.glDisable(GL.GL_BLEND); gl.glColor3f(1,1,1);
+        // 1. إيقاف نظام الصور مؤقتاً للرسم الهندسي
+        gl.glDisable(GL.GL_TEXTURE_2D);
+        gl.glEnable(GL.GL_BLEND);
+
+        float cx = x + width / 2; // منتصف اللاعب
+        float yStart = y + height; // بداية الليزر من مقدمة الطائرة
+        float yEnd = 600;          // نهاية الشاشة
+
+        // --- الطبقة الخارجية (التوهج - Glow) ---
+        // لون سماوي (Cyan) مع شفافية 0.4
+        gl.glColor4f(0.0f, 1.0f, 1.0f, 0.4f);
+        gl.glBegin(GL.GL_QUADS);
+        gl.glVertex2f(cx - 15, yStart);
+        gl.glVertex2f(cx + 15, yStart);
+        gl.glVertex2f(cx + 15, yEnd);
+        gl.glVertex2f(cx - 15, yEnd);
+        gl.glEnd();
+
+        // --- الطبقة الداخلية (القلب - Core) ---
+        // لون أبيض ساطع (White) ورفيع
+        gl.glColor4f(1.0f, 1.0f, 1.0f, 0.9f);
+        gl.glBegin(GL.GL_QUADS);
+        gl.glVertex2f(cx - 4, yStart); // أرفع (4 بكسل)
+        gl.glVertex2f(cx + 4, yStart);
+        gl.glVertex2f(cx + 4, yEnd);
+        gl.glVertex2f(cx - 4, yEnd);
+        gl.glEnd();
+
+        // 2. إعادة تفعيل نظام الصور واللون الطبيعي لباقي اللعبة
+        gl.glEnable(GL.GL_TEXTURE_2D);
+        gl.glDisable(GL.GL_BLEND);
+        gl.glColor3f(1, 1, 1);
     }
     public Rectangle getLaserBounds() { return new Rectangle((int) (x + width / 2 - 10), (int) (y + height), 20, 600); }
     public int getHealth() { return health; }

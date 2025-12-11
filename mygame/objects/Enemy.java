@@ -12,24 +12,33 @@ public class Enemy extends GameObject {
     private Player playerTarget;
     private float startX, startY;
     private int timeAlive = 0;
+    private int textureIndex;
 
-    public Enemy(float x, float y, float size, TypesOfEnemies type, Player player) {
+    // --- NEW VARIABLES FOR HEALTH ---
+    public int health = 100;
+    public int maxHealth = 100;
+
+    public Enemy(float x, float y, float size, TypesOfEnemies type, Player player, int textureIndex) {
         super(x, y, size, size);
         this.type = type;
         this.playerTarget = player;
         this.startX = x;
         this.startY = y;
         this.speed = 3.0f;
+        this.textureIndex = textureIndex;
+
+        // Initialize health
+        this.health = 100;
+        this.maxHealth = 100;
     }
 
     @Override
     public void update() {
+        // ... (Keep existing update logic exactly as it is) ...
         timeAlive++;
         switch (type) {
-            case STRAIGHT:
-            case SQUAD_V:
-                y -= speed;
-                break;
+            case STRAIGHT: y -= speed; break;
+            case SQUAD_V: y -= speed; break;
             case CHASER:
                 y -= speed;
                 if (playerTarget != null) {
@@ -54,12 +63,14 @@ public class Enemy extends GameObject {
         if (y < -100 || x < -200 || x > 1000) setAlive(false);
     }
 
+    // We will handle rendering in GameManager to ensure the bar is drawn ON TOP
     @Override
     public void render(GL gl, int[] textures) {
-        // Texture Index 2 is Enemy ("3.png")
-        drawTexture(gl, textures[5], x, y, width, height);
+        drawTexture(gl, textures[textureIndex], x, y, width, height);
     }
 
+    // Getters
+    public int getTextureIndex() { return textureIndex; }
     public boolean readyToFire() { return Math.random() < 0.003; }
     public TypesOfEnemies getType() { return type; }
 }

@@ -17,13 +17,13 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
 
     // تأكد أن أسماء الصور هنا تطابق تماماً الملفات الموجودة في فولدر Assets
     String textureNames[] = {
-            "BackWar.png", // 0
+            "Star1.png", // 0
             "Hero.png", // 1
             "Hero2.png",
             "Hero3.png",
             "Hero4.png",
-            "3.png",    // 2 enemy=>5
-            "4.png",    // 3 bullet=>6
+            "enemy1.png",    // 2 enemy=>5
+            "Bullet v6.png",    // 3 bullet=>6
             "Boss1.png",// 4 Boss of level 1=>7
             "Boss1.1.png",
             "Boss1.2.png",
@@ -36,46 +36,54 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
             "Boss2.4.png",
             "Boss2.5.png",
             "Boss2.5.png",
-            "6.png",    // 5 item=>19
-            "7.png"     // 6 middle boss=>20
+            "heart.png",    // 5 item=>19
+            "enemy3.png",     // 6 middle boss=>20
+            "enemy1.png",
+            "enemy2.png",
+            "enemy3.png",
+            "coin.png"
+
+
 
     };
 
     TextureReader.Texture texture[] = new TextureReader.Texture[textureNames.length];
     int textures[] = new int[textureNames.length];
-
     public void init(GLAutoDrawable gld) {
         GL gl = gld.getGL();
-        GLU glu = new GLU(); // نحتاجها لضبط الأبعاد
+        GLU glu = new GLU();
 
-        gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // لون الخلفية عند المسح
+        gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
-        // --- 1. إعداد الكاميرا والأبعاد (الحل لمشكلة الأبعاد) ---
+        // إعداد الإحداثيات
         gl.glMatrixMode(GL.GL_PROJECTION);
         gl.glLoadIdentity();
-        // هذا السطر يخبر OpenGL أن الشاشة تبدأ من 0 وتنتهي عند 800 عرضاً و600 طولاً
         glu.gluOrtho2D(0.0, 800.0, 0.0, 600.0);
-
         gl.glMatrixMode(GL.GL_MODELVIEW);
         gl.glLoadIdentity();
-        // -----------------------------------------------------
 
         gl.glEnable(GL.GL_TEXTURE_2D);
+        // تفعيل الشفافية
+        gl.glEnable(GL.GL_BLEND);
         gl.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA);
+
         gl.glGenTextures(textureNames.length, textures, 0);
 
-        for(int i = 0; i < textureNames.length; i++){
+        for (int i = 0; i < textureNames.length; i++) {
             try {
-                // قراءة الصور من مجلد Assets
-                texture[i] = TextureReader.readTexture("Assets" + "//" + textureNames[i] , true);
+                long startTime = System.currentTimeMillis(); // بداية الوقت
+
+                texture[i] = TextureReader.readTexture("Assets" + "//" + textureNames[i], true);
+
                 gl.glBindTexture(GL.GL_TEXTURE_2D, textures[i]);
-                new GLU().gluBuild2DMipmaps(
-                        GL.GL_TEXTURE_2D, GL.GL_RGBA,
-                        texture[i].getWidth(), texture[i].getHeight(),
-                        GL.GL_RGBA, GL.GL_UNSIGNED_BYTE,
-                        texture[i].getPixels()
-                );
-            } catch( IOException e ) {
+                gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA, texture[i].getWidth(), texture[i].getHeight(), 0, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, texture[i].getPixels());
+                gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR);
+                gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR);
+
+                long endTime = System.currentTimeMillis(); // نهاية الوقت
+                System.out.println("Loaded: " + textureNames[i] + " in " + (endTime - startTime) + "ms");
+
+            } catch (IOException e) {
                 System.out.println("Error loading texture: " + textureNames[i]);
                 e.printStackTrace();
             }
@@ -102,7 +110,7 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
     public void drawBackground(GL gl){
         gl.glEnable(GL.GL_BLEND);
         gl.glBindTexture(GL.GL_TEXTURE_2D, textures[0]); // صورة الخلفية
-
+        gl.glColor3f(1.0f, 1.0f, 1.0f);
         gl.glPushMatrix();
         gl.glBegin(GL.GL_QUADS);
 
