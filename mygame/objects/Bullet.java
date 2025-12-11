@@ -1,4 +1,4 @@
-package com.mygame.objects;
+package mygame.objects;
 
 import javax.media.opengl.GL;
 

@@ -1,4 +1,4 @@
-package com.mygame.engine;
+package mygame.engine;
 
 import Texture.AnimListener;
 import Texture.TextureReader;
@@ -59,7 +59,7 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
             "heart.png",        // 19
             "enemy3.png",       // 20
             "enemy1.png",       // 21
-            "enemy2.png",       // 22
+            "enemy2.png",        // 22
             "enemy3.png",       // 23
             "coin.png",         // 24
             "BulletHero.png",   // 25
@@ -102,6 +102,19 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
             "numeral7.png",
             "numeral8.png",
             "numeral9.png",//54
+
+            // --- صور أنيميشن الموت (تضاف في النهاية) ---
+            // Index 55, 56 -> Enemy 1 Death
+            "enemy1.1.png",
+            "enemy1.2.png",
+
+            // Index 57, 58 -> Enemy 2 Death
+            "enemy2.1.png",
+            "enemy2.2.png",
+
+            // Index 59, 60 -> Enemy 3 Death (للنوعين 20 و 23)
+            "enemy3.1.png",
+            "enemy3.3.png"
     };
 
     TextureReader.Texture texture[] = new TextureReader.Texture[textureNames.length];

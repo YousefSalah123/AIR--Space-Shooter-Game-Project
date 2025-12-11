@@ -1,4 +1,4 @@
-package com.mygame.engine;
+package mygame.engine;
 
 import Texture.TextureReader;
 import javax.media.opengl.GL;

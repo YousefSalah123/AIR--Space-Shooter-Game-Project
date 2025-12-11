@@ -1,7 +1,7 @@
-package com.mygame;
-import com.mygame.GUI.*;
-import com.mygame.engine.GameListener;
-import com.mygame.engine.GameManager;
+package mygame;
+import mygame.GUI.*;
+import mygame.engine.GameListener;
+import mygame.engine.GameManager;
 import com.sun.opengl.util.FPSAnimator;
 
 import javax.media.opengl.GLCanvas;

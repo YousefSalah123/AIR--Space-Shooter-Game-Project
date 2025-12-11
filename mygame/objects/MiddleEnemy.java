@@ -1,4 +1,4 @@
-package com.mygame.objects;
+package mygame.objects;
 
 import javax.media.opengl.GL;
 
@@ -10,6 +10,12 @@ public class MiddleEnemy {
 
     public float speedX = 3.0f;
     private float targetY = 450;
+
+    // --- متغيرات الموت ---
+    public boolean isDying = false;
+    public long dyingStartTime = 0;
+    public boolean readyToRemove = false;
+    private int currentTextureIndex = -1; // لتخزين الصورة الحالية
 
     public float getX() {
         return x;
@@ -57,6 +63,19 @@ public class MiddleEnemy {
     }
 
     public void update(int screenWidth) {
+        // 1. منطق الموت
+        if (isDying) {
+            long timePassed = System.currentTimeMillis() - dyingStartTime;
+            if (timePassed > 400) { // مدة أطول قليلاً للعدو المتوسط
+                readyToRemove = true;
+            } else {
+                // Enemy 3 Death start index = 59
+                if (timePassed < 200) currentTextureIndex = 59;
+                else currentTextureIndex = 60;
+            }
+            return; // لا يتحرك
+        }
+
         if (y > targetY) {
             y -= 2.0f; // النزول عند البداية
         } else {
@@ -69,41 +88,52 @@ public class MiddleEnemy {
 
     // تم التعديل: تستقبل مصفوفة الصور
     public void render(GL gl, int[] textures) {
-
         gl.glEnable(GL.GL_BLEND);
-        // نستخدم الصورة رقم 7 (تأكد من وجود صورة باسم 7.png أو عدل الرقم حسب الـ GameListener)
-        // إذا لم تكن قد أضفت 7.png، يمكنك استخدام textures[2] (صورة العدو العادي) مؤقتاً
-        int textureIndex = (textures.length > 7) ? textures[20] : textures[5];
-        gl.glBindTexture(GL.GL_TEXTURE_2D, textureIndex);
 
-        // --- تغيير لون التظليل (Tint) حسب المستوى ---
-        if (level == 1) gl.glColor3f(1.0f, 0.9f, 0.5f);      // أصفر فاتح
-        else if (level == 2) gl.glColor3f(0.5f, 1.0f, 1.0f); // سماوي فاتح
-        else gl.glColor3f(1.0f, 0.5f, 1.0f);                 // بنفسجي فاتح
+        // تحديد الصورة: إذا كان يموت نستخدم currentTextureIndex، وإلا نستخدم الصورة العادية (20)
+        int textureToDraw;
+        if (isDying && currentTextureIndex != -1) {
+            textureToDraw = (textures.length > currentTextureIndex) ? textures[currentTextureIndex] : textures[20];
+        } else {
+            textureToDraw = (textures.length > 20) ? textures[20] : textures[5];
+        }
 
-        // حساب أبعاد المربع بناءً على نصف القطر
+        gl.glBindTexture(GL.GL_TEXTURE_2D, textureToDraw);
+
+        // التلوين
+        if (!isDying) { // نلغي التلوين أثناء الموت لكي تظهر صورة الانفجار بألوانها
+            if (level == 1) gl.glColor3f(1.0f, 0.9f, 0.5f);
+            else if (level == 2) gl.glColor3f(0.5f, 1.0f, 1.0f);
+            else gl.glColor3f(1.0f, 0.5f, 1.0f);
+        } else {
+            gl.glColor3f(1, 1, 1);
+        }
+
         float drawSize = radius * 2;
-        float drawX = x - radius; // التحويل من المركز إلى الركن الأيسر
-        float drawY = y - radius; // التحويل من المركز إلى الركن السفلي
+        float drawX = x - radius;
+        float drawY = y - radius;
 
         gl.glPushMatrix();
         gl.glBegin(GL.GL_QUADS);
-
-        // رسم الصورة
         gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2f(drawX, drawY + drawSize);
         gl.glTexCoord2f(1.0f, 0.0f); gl.glVertex2f(drawX + drawSize, drawY + drawSize);
         gl.glTexCoord2f(1.0f, 1.0f); gl.glVertex2f(drawX + drawSize, drawY);
         gl.glTexCoord2f(0.0f, 1.0f); gl.glVertex2f(drawX, drawY);
-
         gl.glEnd();
         gl.glPopMatrix();
 
         gl.glDisable(GL.GL_BLEND);
-
-        // إعادة اللون للأبيض لعدم التأثير على العناصر التالية
         gl.glColor3f(1, 1, 1);
 
-//        drawHealthBar(gl);
+        // رسم البار فقط إذا لم يكن يمت
+        // if (!isDying) drawHealthBar(gl);
+    }
+
+    public void startDeath() {
+        if (!isDying) {
+            isDying = true;
+            dyingStartTime = System.currentTimeMillis();
+        }
     }
 
     private void drawHealthBar(GL gl) {

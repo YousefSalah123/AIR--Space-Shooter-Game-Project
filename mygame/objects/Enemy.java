@@ -1,4 +1,4 @@
-package com.mygame.objects;
+package mygame.objects;
 
 import javax.media.opengl.GL;
 
@@ -12,11 +12,18 @@ public class Enemy extends GameObject {
     private Player playerTarget;
     private float startX, startY;
     private int timeAlive = 0;
-    private int textureIndex;
 
-    // --- NEW VARIABLES FOR HEALTH ---
+    // متغيرات الرسم
+    private int textureIndex;          // الصورة الحالية
+    private int originalTextureIndex;  // الصورة الأصلية (عشان نعرف نوعه)
+
+    // --- متغيرات الصحة والموت ---
     public int health = 100;
     public int maxHealth = 100;
+
+    public boolean isDying = false;       // هل هو بيموت؟
+    public long dyingStartTime = 0;       // متى بدأ الموت
+    public boolean readyToRemove = false; // هل خلص الأنيميشن وجاهز للحذف؟
 
     public Enemy(float x, float y, float size, TypesOfEnemies type, Player player, int textureIndex) {
         super(x, y, size, size);
@@ -25,9 +32,10 @@ public class Enemy extends GameObject {
         this.startX = x;
         this.startY = y;
         this.speed = 3.0f;
-        this.textureIndex = textureIndex;
 
-        // Initialize health
+        this.textureIndex = textureIndex;
+        this.originalTextureIndex = textureIndex; // حفظ النوع الأصلي
+
         this.health = 100;
         this.maxHealth = 100;
     }
@@ -35,6 +43,11 @@ public class Enemy extends GameObject {
     @Override
     public void update() {
         // ... (Keep existing update logic exactly as it is) ...
+        // 1. لو العدو بيموت، شغل أنيميشن الموت وماتحركوش
+        if (isDying) {
+            updateDeathAnimation();
+            return;
+        }
         timeAlive++;
         switch (type) {
             case STRAIGHT: y -= speed; break;
@@ -77,8 +90,40 @@ public class Enemy extends GameObject {
         drawTexture(gl, textures[textureIndex], x, y, width, height);
     }
 
+    private void updateDeathAnimation() {
+        long timePassed = System.currentTimeMillis() - dyingStartTime;
+
+        // المدة الكلية للأنيميشن (مثلاً 300 مللي ثانية)
+        if (timePassed > 300) {
+            readyToRemove = true; // جاهز للحذف من الـ GameManager
+        } else {
+            // تحديد الـ Index المبدئي لصور الموت بناءً على نوع العدو
+            int deathStartIndex = 55; // افتراضي (Enemy 1)
+
+            if (originalTextureIndex == 21) deathStartIndex = 55;      // Enemy 1
+            else if (originalTextureIndex == 22) deathStartIndex = 57; // Enemy 2
+            else if (originalTextureIndex == 20 || originalTextureIndex == 23) deathStartIndex = 59; // Enemy 3
+
+            // التبديل بين الصورتين (كل 150 مللي ثانية)
+            if (timePassed < 150) {
+                textureIndex = deathStartIndex;     // الصورة الأولى
+            } else {
+                textureIndex = deathStartIndex + 1; // الصورة الثانية
+            }
+        }
+    }
+
+    // دالة لبدء الموت
+    public void startDeath() {
+        if (!isDying) {
+            isDying = true;
+            dyingStartTime = System.currentTimeMillis();
+        }
+    }
     // Getters
     public int getTextureIndex() { return textureIndex; }
-    public boolean readyToFire() { return Math.random() < 0.003; }
+    public boolean readyToFire() {
+        if (isDying) return false; // لا يطلق النار وهو يموت
+        return Math.random() < 0.003; }
     public TypesOfEnemies getType() { return type; }
 }

@@ -1,7 +1,7 @@
-package com.mygame.engine;
+package mygame.engine;
 
-import com.mygame.Game;
-import com.mygame.objects.*;
+import mygame.Game;
+import mygame.objects.*;
 import javax.media.opengl.GL;
 import java.awt.*;
 import java.util.ArrayList;
@@ -118,24 +118,45 @@ public class GameManager {
         for (int i = activeMiddleEnemies.size() - 1; i >= 0; i--) {
             MiddleEnemy me = activeMiddleEnemies.get(i);
             me.update(800);
+
+            // لو خلص أنيميشن الموت -> احذفه الآن
+            if (me.readyToRemove) {
+                score += 500;
+                spawnRandomItem(me.x, me.y);
+                activeMiddleEnemies.remove(i);
+                continue;
+            }
+
+            // لو بيموت -> ما تخليهوش يضرب نار
+            if (me.isDying) continue;
+
             if (currentTime - me.lastShotTime > me.shotDelay) {
                 if (me.type == 1) fireFanShots(me.x, me.y);
                 else fireHomingShot(me.x, me.y);
                 me.lastShotTime = currentTime;
             }
-            if (me.health <= 0) {
-                score += 500;
-                spawnRandomItem(me.x, me.y);
-                activeMiddleEnemies.remove(i);
-            }
+            // تمت إزالة شرط (me.health <= 0) من هنا، سيتم التعامل معه في التصادمات
         }
 
+        // تحديث دالة update للأعداء العاديين
         // 7. Update Regular Enemies
         for (int i = enemies.size() - 1; i >= 0; i--) {
             Enemy e = enemies.get(i);
             e.update();
+
+            // لو خلص أنيميشن الموت -> احذفه
+            if (e.readyToRemove) {
+                enemies.remove(i);
+                continue;
+            }
+
+            // لو بيموت -> ما تخليهوش يضرب
+            if (e.isDying) continue;
+
             if (e.readyToFire()) enemyShootPattern(e);
-            if (!e.isAlive()) enemies.remove(i);
+
+            // إزالة العدو لو خرج بره الشاشة (وليس بسبب الموت)
+            if (!e.isAlive() && !e.isDying) enemies.remove(i);
         }
 
         updateWaveLogic();
@@ -359,32 +380,33 @@ public class GameManager {
         // =================================================================
         for (int i = 0; i < activeMiddleEnemies.size(); i++) {
             MiddleEnemy me = activeMiddleEnemies.get(i);
+
+            // تعديل هام: لو العدو بيموت (أنيميشن)، نتجاهله تماماً في التصادم
+            if (me.isDying) continue;
+
             Rectangle meRect = new Rectangle((int) me.getX() - 30, (int) me.getY() - 30, 60, 60);
 
             // 1. جسم اللاعب ضد جسم العدو
             if (pRect.intersects(meRect)) {
                 if (player.isShieldActive) {
                     // --- حالة الدرع مفعل ---
-                    // العدو يتضرر بشدة (أو يموت) واللاعب سليم
+                    // العدو يتضرر بشدة
                     me.setHealth(me.getHealth() - 100);
                 } else {
                     // --- حالة بدون درع ---
-                    // اللاعب يتضرر
-                    player.setHealth(player.getHealth() - 10);
-                    if (player.getHealth() <= 0) {
-                        player.setHealth(0);
-                        player.isDying = true;
-                    }
-                    // العدو يتضرر ويموت
+                    // اللاعب يتضرر (نستخدم الدالة الجديدة اللي فيها Cooldown)
+                    playerTakeDamage();
+
+                    // العدو يتضرر بشدة
                     me.setHealth(me.getHealth() - 100);
                 }
 
                 // التحقق من موت العدو
                 if (me.getHealth() <= 0) {
-                    activeMiddleEnemies.remove(i);
-                    spawnRandomItem(me.getX(), me.getY());
-                    score += 500;
-                    i--;
+                    me.setHealth(0); // منع الصحة السالبة
+                    // لا نحذف العدو هنا، بل نبدأ الأنيميشن
+                    me.startDeath();
+                    // نوقف اللوب للحظة عشان ما يحصلش أخطاء حسابية في نفس الفريم
                     continue;
                 }
             }
@@ -392,6 +414,10 @@ public class GameManager {
             // 2. ليزر اللاعب ضد العدو
             if (player.isLaserBeamActive && player.getLaserBounds().intersects(meRect)) {
                 me.setHealth(me.getHealth() - 2); // ضرر مستمر
+                if (me.getHealth() <= 0) {
+                    me.setHealth(0);
+                    me.startDeath();
+                }
             }
 
             // 3. رصاص اللاعب ضد العدو
@@ -399,7 +425,12 @@ public class GameManager {
                 if (!b.isAlive() || b.isEnemyBullet()) continue;
                 if (b.getBounds().intersects(meRect)) {
                     me.setHealth(me.getHealth() - 5);
-                    b.setAlive(false);
+                    b.setAlive(false); // الطلقة تختفي
+
+                    if (me.getHealth() <= 0) {
+                        me.setHealth(0);
+                        me.startDeath();
+                    }
                 }
             }
         }
@@ -413,7 +444,8 @@ public class GameManager {
             // 1. ليزر الزعيم ضد اللاعب
             if (boss.isFiringLaser && boss.getLaserBounds().intersects(pRect)) {
                 if (!player.isShieldActive) {
-                    player.setHealth(player.getHealth() - 3); // ضرر سريع
+                    // ضرر الليزر سريع، فممكن نستخدم health مباشرة أو playerTakeDamage لو عايز تقلل سرعة الموت
+                    player.setHealth(player.getHealth() - 3);
                     if (player.getHealth() <= 0) player.isDying = true;
                 }
             }
@@ -425,14 +457,11 @@ public class GameManager {
 
             // 3. جسم اللاعب ضد جسم الزعيم
             if (pRect.intersects(bossRect)) {
-                // إرجاع اللاعب للخلف
-                player.setY(player.getY() - 30);
+                player.setY(player.getY() - 30); // ارتداد
 
                 if (player.isShieldActive) {
-                    // الدرع يحمي اللاعب، والزعيم يأخذ ضرر بسيط من الاصطدام بالدرع
                     boss.takeDamage();
                 } else {
-                    // بدون درع: كارثة للاعب
                     player.setHealth(player.getHealth() - 40);
                     if (player.getHealth() <= 0) {
                         player.setHealth(0);
@@ -451,17 +480,20 @@ public class GameManager {
 
             // ضد الأعداء العاديين
             for (Enemy e : enemies) {
-                if (e.isAlive() && lRect.intersects(e.getBounds())) {
-                    e.setHealth(e.getHealth() - 10);
-                    if (e.getHealth() <= 0) {
-                        e.setAlive(false);
+                // إضافة شرط !e.isDying
+                if (e.isAlive() && !e.isDying && lRect.intersects(e.getBounds())) {
+                    e.health -= 10;
+                    if (e.health <= 0) {
+                        e.health = 0;
+                        // تعديل: تشغيل الموت بدلاً من الحذف
                         score += 50;
                         spawnRandomItem(e.getX(), e.getY());
+                        e.startDeath();
                     }
                 }
             }
 
-            // ضد رصاص العدو (الليزر يحرق الرصاص)
+            // ضد رصاص العدو
             for (Bullet b : bullets) {
                 if (b.isEnemyBullet() && lRect.intersects(b.getBounds())) {
                     b.setAlive(false);
@@ -483,13 +515,16 @@ public class GameManager {
                     b.setAlive(false);
                 } else {
                     for (Enemy e : enemies) {
-                        if (e.isAlive() && bRect.intersects(e.getBounds())) {
+                        // إضافة شرط !e.isDying
+                        if (e.isAlive() && !e.isDying && bRect.intersects(e.getBounds())) {
                             b.setAlive(false);
-                            e.setHealth(e.getHealth() - 15); // ضرر الطلقة
-                            if (e.getHealth() <= 0) {
-                                e.setAlive(false);
+                            e.health -= 15; // ضرر الطلقة
+                            if (e.health <= 0) {
+                                e.health = 0;
+                                // تعديل: تشغيل الموت
                                 score += 50;
                                 spawnRandomItem(e.getX(), e.getY());
+                                e.startDeath();
                             }
                             break;
                         }
@@ -498,17 +533,16 @@ public class GameManager {
             } else {
                 // --- رصاص العدو (ضد اللاعب) ---
                 if (bRect.intersects(pRect)) {
-                    b.setAlive(false); // الرصاصة تختفي
+                    b.setAlive(false);
 
                     if (!player.isShieldActive) {
-                        // لو مفيش درع، دمج للاعب
+                        // هنا ممكن نستخدم playerTakeDamage بس الرصاصة بتختفي أصلاً، فالطريقة القديمة شغالة كويس
                         player.setHealth(player.getHealth() - 2);
                         if (player.getHealth() <= 0) {
                             player.setHealth(0);
                             player.isDying = true;
                         }
                     }
-                    // لو فيه درع، الرصاصة اختفت خلاص واللاعب سليم
                 }
             }
         }
@@ -517,36 +551,30 @@ public class GameManager {
         // E. اصطدام الأعداء الصغيرة بجسم اللاعب
         // =================================================================
         for (Enemy e : enemies) {
-            if (e.isAlive() && pRect.intersects(e.getBounds())) {
+            // إضافة شرط !e.isDying
+            if (e.isAlive() && !e.isDying && pRect.intersects(e.getBounds())) {
 
-                e.setAlive(false); // العدو ينفجر في الحالتين
+                // العدو هيموت لأنه خبط في اللاعب
+                e.startDeath();
 
                 if (player.isShieldActive) {
-                    // الدرع شغال: سكور إضافي واللاعب سليم
                     score += 50;
                 } else {
-                    // الدرع طافي: اللاعب يتضرر
-                    player.setHealth(player.getHealth() - 20);
-                    if (player.getHealth() <= 0) {
-                        player.setHealth(0);
-                        player.isDying = true;
-                    }
+                    // اللاعب يتضرر
+                    playerTakeDamage();
                 }
             }
         }
 
         // =================================================================
-        // F. التقاط الهدايا (Items) - الجزء المضاف
+        // F. التقاط الهدايا (Items)
         // =================================================================
         for (int i = 0; i < items.size(); i++) {
             Item item = items.get(i);
             if (pRect.intersects(item.getBounds())) {
-                // تطبيق تأثير الهدية
                 applyItem(item.getType());
-
-                // حذف الهدية من القائمة
                 items.remove(i);
-                i--; // تعديل العداد
+                i--;
             }
         }
     }    private void handleBossDefeat() { bossActive = false; boss = null; score += 500; enemies.clear(); activeMiddleEnemies.clear(); bullets.clear(); isLevelTransitioning = true; player.triggerFlyOff(); }

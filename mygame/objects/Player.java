@@ -1,4 +1,4 @@
-package com.mygame.objects;
+package mygame.objects;
 
 import javax.media.opengl.GL;
 import java.awt.*;
@@ -8,7 +8,7 @@ public class Player extends GameObject {
 
     public final float SCREEN_WIDTH = 800;
     public final float SCREEN_HEIGHT = 600;
-    public static final int MAX_HEALTH = 1;
+    public static final int MAX_HEALTH = 10000;
 
     // --- Shield Variables ---
     public boolean isShieldActive = false;
