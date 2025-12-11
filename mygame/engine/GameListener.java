@@ -15,47 +15,76 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
     GameManager manager = new GameManager();
     boolean[] keys = new boolean[256];
 
-    // تأكد أن أسماء الصور هنا تطابق تماماً الملفات الموجودة في فولدر Assets
+    // --- متغيرات الخلفية المتحركة ---
+    public static float backgroundY = 0;
+    public static int currentBgPart = 0;
+
+    // **تحديث هام:** متغير لمراقبة تغيير المستوى لإصلاح الوميض
+    private int lastRenderedLevel = -1;
+
+    int lvl1_BgStart = 28;
+    int lvl2_BgStart = 32;
+
+    // --- متغيرات التحميل ---
+    boolean isLoading = true;
+    int loadedAssetsIndex = 0;
+
+    int coverTextureID;
+    TextureReader.Texture coverTexture;
+
+    // أسماء الصور كما هي في كودك
     String textureNames[] = {
-            "Star1.png", // 0
-            "Hero.png", // 1
-            "Hero2.png",
-            "Hero3.png",
-            "Hero4.png",
-            "enemy1.png",    // 2 enemy=>5
-            "Bullet v6.png",    // 3 bullet=>6
-            "Boss1.png",// 4 Boss of level 1=>7
-            "Boss1.1.png",
-            "Boss1.2.png",
-            "Boss1.4.png",
-            "Boss1.6.png",
-            "Boss2.png",// 4 Boss of level 2=>12
-            "Boss2.1.png",
-            "Boss2.2.png",
-            "Boss2.3.png",
-            "Boss2.4.png",
-            "Boss2.5.png",
-            "Boss2.5.png",
-            "heart.png",    // 5 item=>19
-            "enemy3.png",     // 6 middle boss=>20
-            "enemy1.png",
-            "enemy2.png",
-            "enemy3.png",
-            "coin.png"
+            "Star1.png",        // 0
+            "Hero.png",         // 1
+            "Hero2.png",        // 2
+            "Hero3.png",        // 3
+            "Hero4.png",        // 4
+            "enemy1.png",       // 5
+            "Bullet v6.png",    // 6
+            "Boss1.png",        // 7
+            "Boss1.1.png",      // 8
+            "Boss1.2.png",      // 9
+            "Boss1.4.png",      // 10
+            "Boss1.6.png",      // 11
+            "Boss2.png",        // 12
+            "Boss2.1.png",      // 13
+            "Boss2.2.png",      // 14
+            "Boss2.3.png",      // 15
+            "Boss2.4.png",      // 16
+            "Boss2.5.png",      // 17
+            "Boss2.5.png",      // 18
+            "heart.png",        // 19
+            "enemy3.png",       // 20
+            "enemy1.png",       // 21
+            "enemy2.png",       // 22
+            "enemy3.png",       // 23
+            "coin.png",         // 24
+            "BulletHero.png",   // 25
+            "Boss1.png",        // 26
+            "Shield.png",       // 27
 
+            // --- صور خلفيات المستوى الأول (Start Index: 28) ---
+            "Lvl1_Part1.png", // 32
+            "Lvl1_Part1.png", // 33
+            "Lvl1_Part1.png", // 34
+            "Lvl1_Part1.png" , // 35
 
-
+            // --- صور خلفيات المستوى الثاني (Start Index: 32) ---
+            "Lvl1_Part1.png", // 32
+            "Lvl1_Part1.png", // 33
+            "Lvl1_Part1.png", // 34
+            "Lvl1_Part1.png"  // 35
     };
 
     TextureReader.Texture texture[] = new TextureReader.Texture[textureNames.length];
     int textures[] = new int[textureNames.length];
+
     public void init(GLAutoDrawable gld) {
         GL gl = gld.getGL();
         GLU glu = new GLU();
 
-        gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        gl.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
-        // إعداد الإحداثيات
         gl.glMatrixMode(GL.GL_PROJECTION);
         gl.glLoadIdentity();
         glu.gluOrtho2D(0.0, 800.0, 0.0, 600.0);
@@ -63,30 +92,27 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
         gl.glLoadIdentity();
 
         gl.glEnable(GL.GL_TEXTURE_2D);
-        // تفعيل الشفافية
         gl.glEnable(GL.GL_BLEND);
         gl.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA);
 
         gl.glGenTextures(textureNames.length, textures, 0);
 
-        for (int i = 0; i < textureNames.length; i++) {
-            try {
-                long startTime = System.currentTimeMillis(); // بداية الوقت
+        int[] tempID = new int[1];
+        gl.glGenTextures(1, tempID, 0);
+        coverTextureID = tempID[0];
 
-                texture[i] = TextureReader.readTexture("Assets" + "//" + textureNames[i], true);
-
-                gl.glBindTexture(GL.GL_TEXTURE_2D, textures[i]);
-                gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA, texture[i].getWidth(), texture[i].getHeight(), 0, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, texture[i].getPixels());
-                gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR);
-                gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR);
-
-                long endTime = System.currentTimeMillis(); // نهاية الوقت
-                System.out.println("Loaded: " + textureNames[i] + " in " + (endTime - startTime) + "ms");
-
-            } catch (IOException e) {
-                System.out.println("Error loading texture: " + textureNames[i]);
-                e.printStackTrace();
-            }
+        try {
+            // تحميل صورة الغلاف (المسار كما عندك)
+            coverTexture = TextureReader.readTexture("\\Assets\\Lvl1_Part2.png", true);
+            gl.glBindTexture(GL.GL_TEXTURE_2D, coverTextureID);
+            gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA, coverTexture.getWidth(), coverTexture.getHeight(), 0, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, coverTexture.getPixels());
+            gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR);
+            gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR);
+            // منع bleeding من حواف التكسشر
+            gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE);
+            gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -96,59 +122,186 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
         gl.glClear(GL.GL_COLOR_BUFFER_BIT);
         gl.glLoadIdentity();
 
-        // 1. رسم الخلفية
-        drawBackground(gl);
+        if (isLoading) {
+            drawLoadingScreen(gl);
 
-        // 2. تحديث اللعبة
-        manager.player.handleInput(keys);
-        manager.update();
-
-        // 3. رسم اللعبة (نمرر مصفوفة الصور)
-        manager.render(gl, textures);
+            if (loadedAssetsIndex < textureNames.length) {
+                loadOneTexture(gl, loadedAssetsIndex);
+                loadedAssetsIndex++;
+                try { Thread.sleep(30); } catch (InterruptedException e) {}
+            } else {
+                isLoading = false;
+                // بعد التحميل خلى لون الخلفية أبيض كما عندك
+                gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+                manager.isGameRunning = true;
+            }
+        } else {
+            drawBackground(gl);
+            manager.player.handleInput(keys);
+            manager.update();
+            manager.render(gl, textures);
+        }
     }
 
-    public void drawBackground(GL gl){
-        gl.glEnable(GL.GL_BLEND);
-        gl.glBindTexture(GL.GL_TEXTURE_2D, textures[0]); // صورة الخلفية
+    private void loadOneTexture(GL gl, int i) {
+        try {
+            texture[i] = TextureReader.readTexture("Assets//" + textureNames[i], true);
+            gl.glBindTexture(GL.GL_TEXTURE_2D, textures[i]);
+            gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA, texture[i].getWidth(), texture[i].getHeight(), 0, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, texture[i].getPixels());
+            gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR);
+            gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR);
+            // يمنع bleeding من الأطراف عند الفلترة
+            gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE);
+            gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void drawLoadingScreen(GL gl) {
+        gl.glEnable(GL.GL_TEXTURE_2D);
+        gl.glBindTexture(GL.GL_TEXTURE_2D, coverTextureID);
         gl.glColor3f(1.0f, 1.0f, 1.0f);
-        gl.glPushMatrix();
+
         gl.glBegin(GL.GL_QUADS);
-
-        // تعديل الإحداثيات لتملأ الشاشة (0,0) إلى (800,600)
-        // Texture Coordinates (0,0) -> Image Bottom-Left
-        // Vertex Coordinates (0,0) -> Screen Bottom-Left
-
-        gl.glTexCoord2f(0.0f, 0.0f);
-        gl.glVertex2f(0, 0); // Bottom-Left
-
-        gl.glTexCoord2f(1.0f, 0.0f);
-        gl.glVertex2f(800, 0); // Bottom-Right
-
-        gl.glTexCoord2f(1.0f, 1.0f);
-        gl.glVertex2f(800, 600); // Top-Right
-
-        gl.glTexCoord2f(0.0f, 1.0f);
-        gl.glVertex2f(0, 600); // Top-Left
-
+        gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2f(0, 0);
+        gl.glTexCoord2f(1.0f, 0.0f); gl.glVertex2f(800, 0);
+        gl.glTexCoord2f(1.0f, 1.0f); gl.glVertex2f(800, 600);
+        gl.glTexCoord2f(0.0f, 1.0f); gl.glVertex2f(0, 600);
         gl.glEnd();
+
+        gl.glDisable(GL.GL_TEXTURE_2D);
+
+        float percentage = (float) loadedAssetsIndex / textureNames.length;
+        float barWidth = 600;
+        float barHeight = 20;
+        float x = (800 - barWidth) / 2;
+        float y = 50;
+
+        gl.glColor4f(0.0f, 0.0f, 0.0f, 0.7f);
+        gl.glEnable(GL.GL_BLEND);
+        gl.glBegin(GL.GL_QUADS);
+        gl.glVertex2f(x - 5, y - 5);
+        gl.glVertex2f(x + barWidth + 5, y - 5);
+        gl.glVertex2f(x + barWidth + 5, y + barHeight + 5);
+        gl.glVertex2f(x - 5, y + barHeight + 5);
+        gl.glEnd();
+        gl.glDisable(GL.GL_BLEND);
+
+        gl.glColor3f(0.5f, 0.0f, 0.0f);
+        gl.glBegin(GL.GL_QUADS);
+        gl.glVertex2f(x, y);
+        gl.glVertex2f(x + barWidth, y);
+        gl.glVertex2f(x + barWidth, y + barHeight);
+        gl.glVertex2f(x, y + barHeight);
+        gl.glEnd();
+
+        gl.glColor3f(0.0f, 0.8f, 1.0f);
+        gl.glBegin(GL.GL_QUADS);
+        gl.glVertex2f(x, y);
+        gl.glVertex2f(x + (barWidth * percentage), y);
+        gl.glVertex2f(x + (barWidth * percentage), y + barHeight);
+        gl.glVertex2f(x, y + barHeight);
+        gl.glEnd();
+
+        gl.glColor3f(1.0f, 1.0f, 1.0f);
+        gl.glLineWidth(2.0f);
+        gl.glBegin(GL.GL_LINE_LOOP);
+        gl.glVertex2f(x, y);
+        gl.glVertex2f(x + barWidth, y);
+        gl.glVertex2f(x + barWidth, y + barHeight);
+        gl.glVertex2f(x, y + barHeight);
+        gl.glEnd();
+
+        gl.glEnable(GL.GL_TEXTURE_2D);
+    }
+
+    public void drawBackground(GL gl) {
+        // **التحديث هنا:** // التحقق من تغيير المستوى لتصفير العدادات ومنع الوميض
+        if (manager.currentLevel != lastRenderedLevel) {
+            backgroundY = 0;
+            currentBgPart = 0;
+            lastRenderedLevel = manager.currentLevel;
+        }
+
+        gl.glEnable(GL.GL_BLEND);
+        gl.glColor3f(1.0f, 1.0f, 1.0f);
+
+        int startTextureIndex;
+        if (manager.currentLevel == 2) startTextureIndex = lvl2_BgStart;
+        else startTextureIndex = lvl1_BgStart;
+
+        int currentImgIndex = startTextureIndex + Math.min(currentBgPart, 3);
+        int nextImgIndex    = startTextureIndex + Math.min(currentBgPart + 1, 3);
+
+        float scrollSpeed = 2.0f;
+        backgroundY -= scrollSpeed;
+
+        int height = 600;
+        // استخدم += height لتجنب فقدان الباقي لو السرعة أكبر
+        if (backgroundY <= -height) {
+            backgroundY += height;
+            if (currentBgPart < 3) currentBgPart++;
+        }
+
+        int y = Math.round(backgroundY); // تقريب بدلاً من cast مباشر
+        int overlap = 1;
+
+        // حماية: لو الصورة الحالية لم تُحمّل بعد، لا نحاول رسمها (نمنع الفلاش)
+        if (currentImgIndex < 0 || currentImgIndex >= texture.length) return;
+        if (texture[currentImgIndex] == null) {
+            // لو مش محمّل، ما نرسم حاجة (أو ممكن نرسم coverTexture لو حابب)
+            return;
+        }
+
+        // لو الصورة التالية مش محمّلة بعد، استخدم الحالية كنسخة احتياط
+        int actualNextIndex = nextImgIndex;
+        if (nextImgIndex < 0 || nextImgIndex >= texture.length || texture[nextImgIndex] == null) {
+            actualNextIndex = currentImgIndex;
+        }
+
+        // حساب قيمة قص 1 بكسل للـ UV بناءً على ارتفاع التكستشر الفعلي
+        float cropCurrent = 1f / texture[currentImgIndex].getHeight();
+        float cropNext = 1f / texture[actualNextIndex].getHeight();
+
+        gl.glPushMatrix();
+
+        // رسم الحالية
+        gl.glBindTexture(GL.GL_TEXTURE_2D, textures[currentImgIndex]);
+        gl.glBegin(GL.GL_QUADS);
+        gl.glTexCoord2f(0.0f, cropCurrent);    gl.glVertex2f(0, y);
+        gl.glTexCoord2f(1.0f, cropCurrent);    gl.glVertex2f(800, y);
+        gl.glTexCoord2f(1.0f, 1.0f - cropCurrent);    gl.glVertex2f(800, y + height);
+        gl.glTexCoord2f(0.0f, 1.0f - cropCurrent);    gl.glVertex2f(0, y + height);
+        gl.glEnd();
+
+        // رسم التالية (أو نسخة من الحالية لو مش جاهزة)
+        int y2 = y + height - overlap;
+        gl.glBindTexture(GL.GL_TEXTURE_2D, textures[actualNextIndex]);
+        gl.glBegin(GL.GL_QUADS);
+        gl.glTexCoord2f(0.0f, cropNext);    gl.glVertex2f(0, y2);
+        gl.glTexCoord2f(1.0f, cropNext);    gl.glVertex2f(800, y2);
+        gl.glTexCoord2f(1.0f, 1.0f - cropNext);    gl.glVertex2f(800, y2 + height);
+        gl.glTexCoord2f(0.0f, 1.0f - cropNext);    gl.glVertex2f(0, y2 + height);
+        gl.glEnd();
+
         gl.glPopMatrix();
+
         gl.glDisable(GL.GL_BLEND);
     }
 
     @Override
-    public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
-        // يمكن تركها فارغة لأننا ثبتنا الأبعاد في init
-    }
+    public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {}
 
     @Override
     public void displayChanged(GLAutoDrawable drawable, boolean modeChanged, boolean deviceChanged) {}
 
     @Override
     public void keyPressed(KeyEvent e) {
+        if (isLoading) return;
+
         if (e.getKeyCode() < 256) keys[e.getKeyCode()] = true;
-        if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-            if (!manager.isGameRunning) manager.isGameRunning = true;
-        }
+
         if (manager.isGameRunning) {
             if (e.getKeyCode() == KeyEvent.VK_Z && !manager.player.isSpecialAttackActive) manager.fireLaser();
             if (e.getKeyCode() == KeyEvent.VK_X) manager.activateShield();
@@ -158,6 +311,7 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
 
     @Override
     public void keyReleased(KeyEvent e) {
+        if (isLoading) return;
         if (e.getKeyCode() < 256) keys[e.getKeyCode()] = false;
     }
     @Override

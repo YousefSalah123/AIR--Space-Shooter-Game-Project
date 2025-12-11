@@ -8,7 +8,13 @@ public class Player extends GameObject {
 
     public final float SCREEN_WIDTH = 800;
     public final float SCREEN_HEIGHT = 600;
-    public static final int MAX_HEALTH = 15;
+    public static final int MAX_HEALTH = 100;
+    // --- متغيرات الدرع الجديدة ---
+    public boolean isShieldActive = false;
+    private long shieldStartTime = 0;
+    private long lastShieldUseTime = 0;
+    private final long SHIELD_DURATION = 5000; // مدة الدرع: 5 ثواني
+    private final long SHIELD_COOLDOWN = 10000;
 
     // --- حالة الانتقال ---
     public boolean isFlyingOff = false;
@@ -31,20 +37,31 @@ public class Player extends GameObject {
     public int weaponLevel = 1;
 
     // --- الدرع والليزر ---
-    public boolean isShieldActive = false;
     public boolean isShieldAvailable = true;
     private long shieldEndTime = 0;
 
     public boolean isLaserBeamActive = false;
     public boolean isLaserAvailable = true;
     private long laserEndTime = 0;
+    private float shieldAngle = 0;
 
     public Player(float x, float y) {
         super(x, y, 80, 80);
         this.speed = 8.0f;
         this.health = MAX_HEALTH;
     }
+    // دالة مساعدة لمعرفة هل الدرع جاهز (عشان الـ UI)
+    public boolean isShieldReady() {
+        return !isShieldActive && (System.currentTimeMillis() - lastShieldUseTime > SHIELD_COOLDOWN);
+    }
+    // Getter للمتبقي من الوقت (عشان الـ UI)
+    public float getShieldCooldownPercent() {
+        if (isShieldActive) return 1.0f; // شغال
+        if (isShieldReady()) return 1.0f; // جاهز
 
+        long timePassed = System.currentTimeMillis() - lastShieldUseTime;
+        return (float) timePassed / SHIELD_COOLDOWN;
+    }
     @Override
     public void update() {
         // إذا كان اللاعب يموت، لا تقم بتحديث الحركة أو الحدود
@@ -74,6 +91,32 @@ public class Player extends GameObject {
         }
         if (isSpecialAttackActive && now > specialAttackEndTime) {
             isSpecialAttackActive = false;
+        }
+
+        // منطق انتهاء الدرع
+        if (isShieldActive) {
+            if (System.currentTimeMillis() - shieldStartTime > SHIELD_DURATION) {
+                isShieldActive = false; // الغاء الدرع بعد انتهاء الوقت
+                System.out.println("Shield Deactivated!");
+            }
+        }
+    }
+    // دالة تفعيل الدرع (Skill with Cooldown)
+    public void activateShield() {
+        long currentTime = System.currentTimeMillis();
+
+        // التحقق من أن الدرع مش شغال + عدى وقت الانتظار
+        if (!isShieldActive && (currentTime - lastShieldUseTime > SHIELD_COOLDOWN)) {
+            isShieldActive = true;
+            shieldStartTime = currentTime;
+
+            // مهم جداً: نحدث shieldEndTime عشان دالة update متقفلوش بالغلط
+            shieldEndTime = currentTime + SHIELD_DURATION;
+
+            lastShieldUseTime = currentTime;
+            System.out.println("Shield Activated!");
+        } else {
+            System.out.println("Shield is on Cooldown or Active!");
         }
     }
 
@@ -218,9 +261,72 @@ public class Player extends GameObject {
             drawHealthBar(gl);
             if (isShieldActive) drawShield(gl);
         }
-    }
 
-    protected void drawTexture(GL gl, int textureId, float x, float y, float w, float h) {
+        // رسم تأثير الدرع (صورة بتلف)
+        if (isShieldActive) {
+            drawShieldTexture(gl, textures);
+        }
+    }
+    // دالة مساعدة لرسم دايرة زرقاء حوالين اللاعب
+    private void drawShieldEffect(GL gl) {
+        gl.glDisable(GL.GL_TEXTURE_2D); // نوقف الصور عشان نرسم خطوط
+        gl.glEnable(GL.GL_BLEND); // شفافية
+
+        gl.glColor4f(0.0f, 1.0f, 1.0f, 0.5f); // لون سماوي نصف شفاف
+        gl.glLineWidth(3.0f);
+
+        gl.glBegin(GL.GL_LINE_LOOP);
+        float radius = 40; // نصف القطر (اكبر من اللاعب بشوية)
+        float centerX = x + width / 2; // منتصف اللاعب
+        float centerY = y + height / 2;
+
+        for (int i = 0; i < 360; i++) {
+            double angle = Math.toRadians(i);
+            gl.glVertex2d(centerX + Math.cos(angle) * radius, centerY + Math.sin(angle) * radius);
+        }
+        gl.glEnd();
+
+        gl.glEnable(GL.GL_TEXTURE_2D); // نرجع الصور تاني
+        gl.glColor3f(1, 1, 1); // نرجع اللون أبيض
+    }
+    private void drawShieldTexture(GL gl, int[] textures) {
+        gl.glEnable(GL.GL_BLEND);
+
+        // تأكد من استخدام الاندكس الصحيح (27 أو حسب ما وضعت shield.png)
+        if (textures.length > 27) {
+            gl.glBindTexture(GL.GL_TEXTURE_2D, textures[27]);
+        } else {
+            return;
+        }
+
+        gl.glPushMatrix();
+
+        // 1. نقل الرسم لمنتصف اللاعب
+        float centerX = x + width / 2;
+        float centerY = y + height / 2;
+        gl.glTranslated(centerX, centerY, 0);
+
+        // ---------------------------------------------------------
+        // تم حذف سطور الدوران من هنا
+        // shieldAngle += 2.0f;        <-- حذفنا ده
+        // gl.glRotated(shieldAngle, 0, 0, 1); <-- وحذفنا ده
+        // ---------------------------------------------------------
+
+        // 2. رسم الدرع (مربع حول المركز)
+        float sSize = width + 30; // حجم الدرع
+        gl.glColor4f(1f, 1f, 1f, 0.8f); // شفافية
+
+        gl.glBegin(GL.GL_QUADS);
+        gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2d(-sSize/2, -sSize/2);
+        gl.glTexCoord2f(1.0f, 0.0f); gl.glVertex2d(sSize/2, -sSize/2);
+        gl.glTexCoord2f(1.0f, 1.0f); gl.glVertex2d(sSize/2, sSize/2);
+        gl.glTexCoord2f(0.0f, 1.0f); gl.glVertex2d(-sSize/2, sSize/2);
+        gl.glEnd();
+
+        gl.glPopMatrix();
+
+        gl.glDisable(GL.GL_BLEND);
+    }    protected void drawTexture(GL gl, int textureId, float x, float y, float w, float h) {
         gl.glEnable(GL.GL_BLEND);
         gl.glBindTexture(GL.GL_TEXTURE_2D, textureId);
         gl.glColor3f(1, 1, 1);

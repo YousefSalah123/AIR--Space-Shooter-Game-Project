@@ -6,19 +6,21 @@ public class Bullet extends GameObject {
 
     private final boolean isEnemyBullet;
     private float speedX = 0;
+    private int textureIndex; // <-- لازم المتغير ده يكون موجود
 
-    public Bullet(float x, float y, boolean isEnemyBullet) {
-        super(x, y, 10, 20); // Adjusted size for sprite
-        this.isEnemyBullet = isEnemyBullet;
-        this.speed = isEnemyBullet ? -7.0f : 15.0f;
-    }
+    // الكونستركتور لازم يستقبل الـ textureIndex
+    public Bullet(float x, float y, float speedX, float speedY, boolean isEnemyBullet, int textureIndex) {
+        super(x, y,
+                isEnemyBullet ? 15 : 30,  // العرض: لو عدو 15، لو لاعب 30 (أعرض)
+                isEnemyBullet ? 25 : 50   // الطول: لو عدو 25، لو لاعب 50 (أطول)
+        );
 
-    public Bullet(float x, float y, float speedX, float speedY, boolean isEnemyBullet) {
-        super(x, y, 15, 25);
-        this.isEnemyBullet = isEnemyBullet;
-        this.speed = speedY;
         this.speedX = speedX;
+        this.speed = speedY;
+        this.isEnemyBullet = isEnemyBullet;
+        this.textureIndex = textureIndex;
     }
+
 
     @Override
     public void update() {
@@ -31,14 +33,33 @@ public class Bullet extends GameObject {
 
     @Override
     public void render(GL gl, int[] textures) {
-        // Texture Index 3 is Bullet ("4.png")
-        // يمكن تغيير اللون لتمييز رصاص العدو
-        if (isEnemyBullet) gl.glColor3f(1.0f, 0.5f, 0.5f); // Reddish tint
-        else gl.glColor3f(1.0f, 1.0f, 1.0f); // Normal
+        gl.glEnable(GL.GL_BLEND);
+        // استخدام رقم الصورة المخزن
+        gl.glBindTexture(GL.GL_TEXTURE_2D, textures[textureIndex]);
 
-        drawTexture(gl, textures[6], x, y, width, height);
+        gl.glPushMatrix(); // 1. حفظ الإحداثيات الحالية
 
-        gl.glColor3f(1,1,1); // Reset color
+        // 2. نقل نقطة الرسم لمنتصف الرصاصة (عشان لما نلفها، تلف حوالين نفسها مش تطير بعيد)
+        // بنستخدم x و y الحالية + نصف العرض ونصف الطول
+        gl.glTranslated(x + width / 2, y + height / 2, 0);
+
+        // 3. لو الرصاصة دي "طلقة عدو"، لفها 180 درجة
+        if (isEnemyBullet) {
+            gl.glRotated(180, 0, 0, 1); // الدوران حول محور Z
+        }
+
+        // 4. رسم الرصاصة
+        // ملحوظة مهمة: بما إننا عملنا Translate للمنتصف، يبقى لازم نرسم
+        // بحيث يكون (0,0) هو السنتر. يعني نبدأ من السالب للموجب.
+        gl.glBegin(GL.GL_QUADS);
+        gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2d(-width / 2, -height / 2);
+        gl.glTexCoord2f(1.0f, 0.0f); gl.glVertex2d(width / 2, -height / 2);
+        gl.glTexCoord2f(1.0f, 1.0f); gl.glVertex2d(width / 2, height / 2);
+        gl.glTexCoord2f(0.0f, 1.0f); gl.glVertex2d(-width / 2, height / 2);
+        gl.glEnd();
+
+        gl.glPopMatrix(); // 5. استرجاع الإحداثيات عشان باقي اللعبة تترسم صح
+        gl.glDisable(GL.GL_BLEND);
     }
 
     public boolean isEnemyBullet() { return isEnemyBullet; }

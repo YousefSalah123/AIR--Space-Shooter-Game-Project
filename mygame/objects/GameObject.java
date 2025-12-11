@@ -22,6 +22,26 @@ public abstract class GameObject {
     // التعديل: نمرر مصفوفة الصور هنا
     public abstract void render(GL gl, int[] textures);
 
+    public void setX(float x) {
+        this.x = x;
+    }
+
+    public void setY(float y) {
+        this.y = y;
+    }
+
+    public void setSpeed(float speed) {
+        this.speed = speed;
+    }
+
+    public void setWidth(float width) {
+        this.width = width;
+    }
+
+    public void setHeight(float height) {
+        this.height = height;
+    }
+
     protected void drawTexture(GL gl, int textureId, float x, float y, float w, float h) {
         gl.glEnable(GL.GL_BLEND);
         gl.glBindTexture(GL.GL_TEXTURE_2D, textureId);

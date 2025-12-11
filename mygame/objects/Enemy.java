@@ -63,6 +63,14 @@ public class Enemy extends GameObject {
         if (y < -100 || x < -200 || x > 1000) setAlive(false);
     }
 
+    public int getHealth() {
+        return health;
+    }
+
+    public void setHealth(int health) {
+        this.health = health;
+    }
+
     // We will handle rendering in GameManager to ensure the bar is drawn ON TOP
     @Override
     public void render(GL gl, int[] textures) {

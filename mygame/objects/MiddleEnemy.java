@@ -11,6 +11,30 @@ public class MiddleEnemy {
     public float speedX = 3.0f;
     private float targetY = 450;
 
+    public float getX() {
+        return x;
+    }
+
+    public void setX(float x) {
+        this.x = x;
+    }
+
+    public float getY() {
+        return y;
+    }
+
+    public void setY(float y) {
+        this.y = y;
+    }
+
+    public int getHealth() {
+        return health;
+    }
+
+    public void setHealth(int health) {
+        this.health = health;
+    }
+
     public long lastShotTime = 0;
     public long shotDelay = 1000;
     public int type; // 1: مروحة، 2: تتبع
@@ -79,7 +103,7 @@ public class MiddleEnemy {
         // إعادة اللون للأبيض لعدم التأثير على العناصر التالية
         gl.glColor3f(1, 1, 1);
 
-        drawHealthBar(gl);
+//        drawHealthBar(gl);
     }
 
     private void drawHealthBar(GL gl) {

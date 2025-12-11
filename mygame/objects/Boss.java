@@ -74,10 +74,10 @@ public class Boss extends GameObject {
         int fireRate = 1000 - (level * 100);
 
         if (currentTime - lastShotTime > fireRate) {
-            bullets.add(new Bullet(x + width / 2, y, 0, -10, true));
+            bullets.add(new Bullet(x + width / 2, y, 0, -10, true,6));
             if (level >= 2) {
-                bullets.add(new Bullet(x, y, -3, -8, true));
-                bullets.add(new Bullet(x + width, y, 3, -8, true));
+                bullets.add(new Bullet(x, y, -3, -8, true,6));
+                bullets.add(new Bullet(x + width, y, 3, -8, true,6));
             }
             lastShotTime = currentTime;
         }
@@ -271,7 +271,7 @@ public class Boss extends GameObject {
     public void takeDamage() {
         if (isDying) return;
 
-        health -= 7;
+        health -= 3;
         if (health <= 0) {
             isDying = true;
             health = 0;
