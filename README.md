@@ -76,7 +76,7 @@ This project was brought to life by a dedicated team of developers, each special
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/YousefSalah123/Air-SpaceShooter-JOGL.git](https://github.com/YousefSalah123/Air-SpaceShooter-JOGL.git)
+    git clone [[https://github.com/YousefSalah123/Air-SpaceShooter-JOGL.git]
     ```
 2.  **Open in IntelliJ IDEA:**
     * File -> Open -> Select project folder.
