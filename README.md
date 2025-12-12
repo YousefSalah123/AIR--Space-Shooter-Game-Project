@@ -39,14 +39,14 @@ We are proud to announce that the visual identity of *Galactic Air Force* is a t
 
 ## 🕹️ Controls
 
-| Action | Player 1 | Player 2 (Co-op) |
-| :--- | :---: | :---: |
-| **Move** | Arrow Keys | W, A, S, D |
-| **Shoot** | Space / Auto | F |
-| **Laser** | Z | Q |
-| **Shield** | X | E |
-| **Pause Game** | ESC | ESC |
-| **Mute/Unmute** | M | M |
+| Action | Player 1 |
+| :--- | :---: |
+| **Move** | Arrow Keys |
+| **Shoot** | Space | 
+| **Laser** | Z |
+| **Shield** | X |
+| **Pause Game** | ESC |
+| **Mute/Unmute** | M |
 
 ---
 
