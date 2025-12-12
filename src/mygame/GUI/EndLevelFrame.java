@@ -106,7 +106,7 @@ public class EndLevelFrame extends JFrame {
 
         // --- Use Required Buttons ---
         JButton retryBtn = createGameButton("RETRY MISSION");
-        JButton nextBtn = createGameButton(victory ? "Back To MENU" : "MAIN MENU");
+        JButton nextBtn = createGameButton(victory ? "BACK TO MENU" : "MAIN MENU");
 
         retryBtn.addActionListener(onRetry);
         nextBtn.addActionListener(onNext);

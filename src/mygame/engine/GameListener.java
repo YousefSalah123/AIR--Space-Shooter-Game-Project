@@ -120,14 +120,13 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
             "enemy3.1.png", //59
             "enemy3.3.png", //60
 
-            // Index 61, 62, 63, 64, 65, 66, 67 -> Boss Level 3
-            "Boss3.png",    //61
-            "Boss3.1.png",  //62
-            "Boss3.2.png",  //63
-            "Boss3.3.png",  //64
-            "Boss3.4.png",  //65
-            "Boss3.5.png",  //66
-            "Boss3.6.png"   //67
+            // Index 61, 62, 63, 64, 65, 66 -> Boss Level 3
+            "Boss3.1.png",  //61
+            "Boss3.2.png",  //62
+            "Boss3.3.png",  //63
+            "Boss3.4.png",  //64
+            "Boss3.5.png",  //65
+            "Boss3.6.png"   //66
 
     };
 

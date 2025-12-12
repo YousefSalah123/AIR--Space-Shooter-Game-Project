@@ -156,7 +156,7 @@ public class Boss extends GameObject {
         else {
             // Level 3 (based on your code)
             myBossStartIndex = 61;
-            myBossEndIndex   = 67;
+            myBossEndIndex   = 66;
         }
 
         int textureIndex;
