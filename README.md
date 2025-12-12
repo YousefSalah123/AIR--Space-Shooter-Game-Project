@@ -14,7 +14,6 @@
 The game offers a classic arcade experience with modern twists. Players pilot advanced starfighters through hostile alien territories, facing waves of enemies and massive level bosses.
 
 ### 🌟 Key Features
-* **Multi-Level Campaign:** Progression through distinct levels with increasing difficulty.
 * **Epic Boss Fights:** Unique bosses for each level with complex attack patterns (Fan-shots, Parallel streams, etc.).
 * **Local Co-op Multiplayer:** Team up with a friend on the same keyboard for double the firepower.
 * **Dynamic Sound System:** Immersive sound effects and background music that adapts to the game state.
