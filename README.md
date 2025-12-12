@@ -49,15 +49,6 @@ We are proud to announce that the visual identity of *Galactic Air Force* is a t
 | **Mute/Unmute** | M |
 
 ---
-
-## 👥 The Mission Squad (Development Team)
-
-This project was brought to life by a dedicated team of developers, each specializing in key areas of game engineering and design.
-
-## 👥 The Mission Squad (Development Team)
-
-This project was brought to life by a dedicated team of developers, each specializing in key areas of game engineering and design.
-
 ## 👥 The Mission Squad (Development Team)
 
 This project was brought to life by a dedicated team of developers, each specializing in key areas of game engineering and design.
