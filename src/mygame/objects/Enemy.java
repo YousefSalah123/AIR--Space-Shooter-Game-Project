@@ -8,7 +8,15 @@ public class Enemy extends GameObject {
 
     // Enum defining the different types of movement patterns for enemies.
     public enum TypesOfEnemies {
-        STRAIGHT, CHASER, SQUAD_V, SQUAD_ENTER_LEFT, SQUAD_ENTER_RIGHT, CIRCLE_PATH
+        STRAIGHT,
+        CHASER,
+        CIRCLE_PATH,
+        SQUAD_V,
+        SQUAD_ENTER_LEFT,
+        SQUAD_ENTER_RIGHT,
+        // ⭐ New Types
+        ZIGZAG,   // Wave movement
+        SPINNER   // Slow moving turret
     }
 
     private TypesOfEnemies type;
@@ -54,9 +62,16 @@ public class Enemy extends GameObject {
             return;
         }
         timeAlive++;
+
         switch (type) {
-            case STRAIGHT: y -= speed; break;
-            case SQUAD_V: y -= speed; break;
+            case STRAIGHT:
+                y -= speed;
+                break;
+
+            case SQUAD_V:
+                y -= speed;
+                break;
+
             case CHASER:
                 y -= speed;
                 if (playerTarget != null) {
@@ -64,17 +79,35 @@ public class Enemy extends GameObject {
                     if (x > playerTarget.getX()) x -= 2.0f;
                 }
                 break;
+
             case SQUAD_ENTER_LEFT:
                 x += 3.0f;
                 y = startY - (timeAlive * 2.5f) + (float)(Math.sin(timeAlive * 0.02) * 30);
                 break;
+
             case SQUAD_ENTER_RIGHT:
                 x -= 3.0f;
                 y = startY - (timeAlive * 2.5f) + (float)(Math.sin(timeAlive * 0.02) * 30);
                 break;
+
             case CIRCLE_PATH:
                 y -= 2.0f;
                 x = startX + (float)(Math.sin(timeAlive * 0.02) * 80);
+                break;
+
+            // ⭐ NEW: ZigZag Logic (Snake Movement)
+            case ZIGZAG:
+                y -= speed;
+                // Sine wave formula: Amplitude 5, Frequency 0.05
+                x += Math.sin(y * 0.05) * 5;
+                // Boundary check to keep inside screen width (assuming 800 width)
+                if (x < 0) x = 0;
+                if (x > 740) x = 740; // 740 to account for enemy width (approx 60)
+                break;
+
+            // ⭐ NEW: Spinner Logic (Slow Down)
+            case SPINNER:
+                y -= (speed * 0.7); // Move 30% slower
                 break;
         }
 
@@ -82,8 +115,6 @@ public class Enemy extends GameObject {
     }
 
     // Renders the enemy's current texture.
-    // The health bar rendering is often handled externally (e.g., in GameManager)
-    // to ensure it draws on top of all enemies.
     @Override
     public void render(GL gl, int[] textures) {
         drawTexture(gl, textures[textureIndex], x, y, width, height);
@@ -125,7 +156,8 @@ public class Enemy extends GameObject {
     // provided it is not currently dying.
     public boolean readyToFire() {
         if (isDying) return false; // Cannot fire while dying
-        return Math.random() < 0.003; }
+        return Math.random() < 0.003;
+    }
 
     // Returns the movement type of the enemy.
     public TypesOfEnemies getType() { return type; }

@@ -1,0 +1,12 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="AIR--Space-Shooter-Game-Project:jar2">
+    <output-path>$PROJECT_DIR$/out/artifacts/AIR__Space_Shooter_Game_Project_jar2</output-path>
+    <root id="archive" name="AIR--Space-Shooter-Game-Project.jar">
+      <element id="module-output" name="AIR--Space-Shooter-Game-Project" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../JOGLwin/JOGLwin/lib64/gluegen-rt.jar" path-in-jar="/" />
+      <element id="library" level="project" name="lib64" />
+      <element id="library" level="project" name="lib65" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../JOGLwin/JOGLwin/lib64/jogl.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>

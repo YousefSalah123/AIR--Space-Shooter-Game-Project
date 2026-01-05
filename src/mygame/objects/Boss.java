@@ -10,7 +10,7 @@ import java.util.ArrayList;
 public class Boss extends GameObject {
 
     public int health;
-    private int maxHealth;
+    public int maxHealth;
     private int level;
     private float moveSpeed = 2.0f;
     private int direction = 1;

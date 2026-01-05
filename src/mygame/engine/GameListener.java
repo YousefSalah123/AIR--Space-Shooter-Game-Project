@@ -13,10 +13,6 @@ import java.io.IOException;
 import java.util.Arrays;
 
 public class GameListener extends AnimListener implements GLEventListener, KeyListener , MouseListener {
-    // Constructor to initialize the GameListener with a GameManager
-    public GameListener(GameManager manager) {
-        this.manager = manager;
-    }
 
     GameManager manager;
     boolean[] keys = new boolean[256];
@@ -24,13 +20,12 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
     // --- Variables for the scrolling background ---
     public static float backgroundY = 0;
     public static int currentBgPart = 0;
-
-    // **Important Update:** Variable to monitor level change to fix flickering
     private int lastRenderedLevel = -1;
 
     int lvl1_BgStart = 28;
     int lvl2_BgStart = 32;
     int lvl3_BgStart = 36;
+
     // --- Loading variables ---
     boolean isLoading = true;
     int loadedAssetsIndex = 0;
@@ -38,7 +33,7 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
     int coverTextureID;
     TextureReader.Texture coverTexture;
 
-    // Texture names as they are in the codec
+    // Texture names
     String textureNames[] = {
             "Star1.png",        // 0
             "Hero.png",         // 1
@@ -70,30 +65,28 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
             "Shield.png",       // 27
 
             // --- Level 1 background images (Start Index: 28) ---
-            "L1.0.png", // 28 (32 in old comment, corrected to 28)
-            "L1.1.png", // 29 (33 in old comment)
-            "L1.2.png",// 30 (34 in old comment)
-            "L1.3.png" , // 31 (35 in old comment)
+            "L1.0.png", // 28
+            "L1.1.png", // 29
+            "L1.2.png", // 30
+            "L1.3.png", // 31
 
             // --- Level 2 background images (Start Index: 32) ---
-
             "B2.png", // 32
             "B1.png", // 33
-            "B3.png",// 34
-            "B4.png" , // 35
+            "B3.png", // 34
+            "B4.png", // 35
+
             // --- Level 3 background images (Start Index: 36) ---
             "L3.0.png", // 36
             "L3.1.png", // 37
             "L3.2.png", // 38
-            "L3.3.png",  // 39
+            "L3.3.png", // 39
 
-
-            "bulletup.png",  // 40
-            // --- Add these icons at the end ---
+            "bulletup.png",   // 40
             "laserIcon.png",  // 41
             "ShieldICon.png", // 42
-            "bulletIcon.png",   // 43
-            "numeralX.png", // 44
+            "bulletIcon.png", // 43
+            "numeralX.png",   // 44
 
             // numbers (index : 45)
             "numeral0.png", //45
@@ -107,46 +100,46 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
             "numeral8.png",//53
             "numeral9.png",//54
 
-            // --- Death animation images (added at the end) ---
-            // Index 55, 56 -> Enemy 1 Death
+            // --- Death animation images ---
             "enemy1.1.png", //55
             "enemy1.2.png", //56
-
-            // Index 57, 58 -> Enemy 2 Death
             "enemy2.1.png", //57
             "enemy2.2.png", //58
-
-            // Index 59, 60 -> Enemy 3 Death (for types 20 and 23)
             "enemy3.1.png", //59
             "enemy3.3.png", //60
 
-            // Index 61, 62, 63, 64, 65, 66 -> Boss Level 3
+            // Boss Level 3
             "Boss3.1.png",  //61
             "Boss3.2.png",  //62
             "Boss3.3.png",  //63
             "Boss3.4.png",  //64
             "Boss3.5.png",  //65
-            "Boss3.6.png"   //66
+            "Boss3.6.png",  //66
 
+            // --- MULTIPLAYER ASSET ---
+            // Index 67: The Red Plane for Player 2
+            // IMPORTANT: Make sure this file exists in Assets folder!
+            "RedPlane2.png",   // 67 (Base / Healthy)
+            "RedPlane2.png",  // 68 (Light Damage)
+            "RedPlane3.png",  // 69 (Heavy Damage)
+            "RedPlane4.png"   // 70 (Destroyed)
     };
 
     TextureReader.Texture texture[] = new TextureReader.Texture[textureNames.length];
     int textures[] = new int[textureNames.length];
 
-    // Initializes OpenGL settings, coordinate system, blending, and loads the cover image.
+    public GameListener(GameManager manager) {
+        this.manager = manager;
+    }
+
     @Override
     public void init(GLAutoDrawable gld) {
         GL gl = gld.getGL();
         GLU glu = new GLU();
 
-        // 1. Important step: immediately color the screen black before doing anything else
-        // So that if loading takes time, the user sees a black screen, not white
         gl.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-
-        // Clear the buffer immediately to apply the black color
         gl.glClear(GL.GL_COLOR_BUFFER_BIT);
 
-        // 2. Coordinate settings
         gl.glMatrixMode(GL.GL_PROJECTION);
         gl.glLoadIdentity();
         glu.gluOrtho2D(0.0, 800.0, 0.0, 600.0);
@@ -157,24 +150,18 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
         gl.glEnable(GL.GL_BLEND);
         gl.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA);
 
-        // 3. Reserve texture IDs for all textures
         gl.glGenTextures(textureNames.length, textures, 0);
 
         int[] tempID = new int[1];
         gl.glGenTextures(1, tempID, 0);
         coverTextureID = tempID[0];
 
-        // 4. Load the cover image (the heaviest operation) after screen setup
         try {
-            // Tip: Ensure that the size of Front.png does not exceed 1024x1024 for faster loading
             coverTexture = TextureReader.readTexture("Assets/Front.png", true);
-
             gl.glBindTexture(GL.GL_TEXTURE_2D, coverTextureID);
             gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA, coverTexture.getWidth(), coverTexture.getHeight(), 0, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, coverTexture.getPixels());
             gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR);
             gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR);
-
-            // Settings to prevent repetition
             gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE);
             gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE);
 
@@ -184,7 +171,6 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
         }
     }
 
-    // Called for rendering the graphics. Handles the loading screen state and the main game loop.
     @Override
     public void display(GLAutoDrawable drawable) {
         GL gl = drawable.getGL();
@@ -193,68 +179,64 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
 
         if (isLoading) {
             drawLoadingScreen(gl);
-
             if (loadedAssetsIndex < textureNames.length) {
                 loadOneTexture(gl, loadedAssetsIndex);
                 loadedAssetsIndex++;
                 try { Thread.sleep(30); } catch (InterruptedException e) {}
             } else {
                 isLoading = false;
-                // After loading, set the background color to white as desired
                 gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
                 manager.isGameRunning = true;
             }
         } else {
             drawBackground(gl);
             drawScore(gl);
-            manager.player.handleInput(keys);
+
+            // --- Update Input for Both Players ---
+            // The logic for what keys do what is inside Player.handleInput
+            manager.player1.handleInput(keys);
+            if (manager.isMultiplayer && manager.player2 != null) {
+                manager.player2.handleInput(keys);
+            }
+
             manager.update();
             manager.render(gl, textures);
         }
     }
 
-    // Draws the current score display in the top-left corner.
     public void drawScore(GL gl) {
-        float x = 20; // Distance from the left
-        float y = 600 - 20 - 48; // Distance from the top
-        float size = 32; // Size of the coin and 'x' images
-        float padding = 5; // Spacing between elements
+        float x = 20;
+        float y = 600 - 20 - 48;
+        float size = 32;
+        float padding = 5;
 
-        // 1. Draw coin image (Texture Index 24)
-        drawTexture(gl, textures[24], x, y, size, size);
+        drawTexture(gl, textures[24], x, y, size, size); // Coin
 
-        // 2. Draw 'x' (Texture Index 44)
         float x2 = x + size + padding;
-        drawTexture(gl, textures[44], x2, y, size/2, size); // 'x' is slightly smaller
+        drawTexture(gl, textures[44], x2, y, size/2, size); // 'x'
 
-        // 3. Draw score digits using numeral textures (indices 45 to 54)
         float x3 = x2 + size/2 + padding;
         String scoreStr = manager.score + "";
         for (char c : scoreStr.toCharArray()) {
-            int num = c - '0'; // Convert character to digit
+            int num = c - '0';
             drawTexture(gl, textures[45 + num], x3, y, size/2, size);
-            x3 += size/2 + 2; // Increase spacing between digits
+            x3 += size/2 + 2;
         }
     }
 
-
-    // Function to draw a texture using GL_QUADS.
     protected void drawTexture(GL gl, int textureId, float x, float y, float w, float h) {
         gl.glEnable(GL.GL_BLEND);
         gl.glBindTexture(GL.GL_TEXTURE_2D, textureId);
         gl.glColor3f(1, 1, 1);
-
         gl.glBegin(GL.GL_QUADS);
         gl.glTexCoord2f(0, 1); gl.glVertex2f(x, y + h);
         gl.glTexCoord2f(1, 1); gl.glVertex2f(x + w, y + h);
         gl.glTexCoord2f(1, 0); gl.glVertex2f(x + w, y);
         gl.glTexCoord2f(0, 0); gl.glVertex2f(x, y);
         gl.glEnd();
-
         gl.glDisable(GL.GL_BLEND);
     }
 
-    // Loads a single texture at the given index.
     private void loadOneTexture(GL gl, int i) {
         try {
             texture[i] = TextureReader.readTexture("Assets//" + textureNames[i], true);
@@ -262,7 +244,6 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
             gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA, texture[i].getWidth(), texture[i].getHeight(), 0, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, texture[i].getPixels());
             gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR);
             gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR);
-            // Prevents bleeding from the edges when filtering
             gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE);
             gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE);
         } catch (IOException e) {
@@ -270,28 +251,31 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
         }
     }
 
-    // Draws the game's initial loading screen with the cover image and a progress bar.
     private void drawLoadingScreen(GL gl) {
+        // رسم الخلفية
         gl.glEnable(GL.GL_TEXTURE_2D);
         gl.glBindTexture(GL.GL_TEXTURE_2D, coverTextureID);
         gl.glColor3f(1.0f, 1.0f, 1.0f);
-
         gl.glBegin(GL.GL_QUADS);
         gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2f(0, 0);
         gl.glTexCoord2f(1.0f, 0.0f); gl.glVertex2f(800, 0);
         gl.glTexCoord2f(1.0f, 1.0f); gl.glVertex2f(800, 600);
         gl.glTexCoord2f(0.0f, 1.0f); gl.glVertex2f(0, 600);
         gl.glEnd();
-
         gl.glDisable(GL.GL_TEXTURE_2D);
 
+        // ⭐ FIX: تعديل أبعاد ومكان شريط التحميل
         float percentage = (float) loadedAssetsIndex / textureNames.length;
-        float barWidth = 600;
+        float barWidth = 500; // قللنا العرض من 600 لـ 500 عشان يبعد عن الزر
         float barHeight = 20;
-        float x = (800 - barWidth) / 2;
-        float y = 50;
 
-        // Draw progress bar background (semi-transparent black)
+        // توسيط البار بناءً على العرض الجديد
+        float x = (800 - barWidth) / 2;
+
+        // رفعه قليلاً للأعلى (كان 50، خليناه 80) عشان يكون فوق مستوى الزر
+        float y = 80;
+
+        // رسم خلفية البار (الظل الأسود)
         gl.glColor4f(0.0f, 0.0f, 0.0f, 0.7f);
         gl.glEnable(GL.GL_BLEND);
         gl.glBegin(GL.GL_QUADS);
@@ -302,7 +286,7 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
         gl.glEnd();
         gl.glDisable(GL.GL_BLEND);
 
-        // Draw empty part of the progress bar (dark red)
+        // رسم الإطار الأحمر
         gl.glColor3f(0.5f, 0.0f, 0.0f);
         gl.glBegin(GL.GL_QUADS);
         gl.glVertex2f(x, y);
@@ -311,7 +295,7 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
         gl.glVertex2f(x, y + barHeight);
         gl.glEnd();
 
-        // Draw filled part of the progress bar (light blue)
+        // رسم التقدم (الأزرق)
         gl.glColor3f(0.0f, 0.8f, 1.0f);
         gl.glBegin(GL.GL_QUADS);
         gl.glVertex2f(x, y);
@@ -320,7 +304,7 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
         gl.glVertex2f(x, y + barHeight);
         gl.glEnd();
 
-        // Draw progress bar border (white)
+        // رسم الإطار الأبيض
         gl.glColor3f(1.0f, 1.0f, 1.0f);
         gl.glLineWidth(2.0f);
         gl.glBegin(GL.GL_LINE_LOOP);
@@ -333,9 +317,7 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
         gl.glEnable(GL.GL_TEXTURE_2D);
     }
 
-    // Draws the continuously scrolling background for the current game level.
     public void drawBackground(GL gl) {
-        // 1. Monitor level change to reset counters immediately (prevents flickering during transition)
         if (manager.currentLevel != lastRenderedLevel) {
             backgroundY = 0;
             currentBgPart = 0;
@@ -345,49 +327,32 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
         gl.glEnable(GL.GL_BLEND);
         gl.glColor3f(1.0f, 1.0f, 1.0f);
 
-        // 2. Determine the set of images based on the current level
         int startTextureIndex;
-        int imagesPerLevel = 4; // Number of images per level
+        int imagesPerLevel = 4;
 
-        if (manager.currentLevel == 1) {
-            startTextureIndex = lvl1_BgStart;
-        } else if (manager.currentLevel == 2) {
-            startTextureIndex = lvl2_BgStart;
-        } else {
-            // Level 3 (or later)
-            startTextureIndex = lvl3_BgStart;
-        }
+        if (manager.currentLevel == 1) startTextureIndex = lvl1_BgStart;
+        else if (manager.currentLevel == 2) startTextureIndex = lvl2_BgStart;
+        else startTextureIndex = lvl3_BgStart;
 
-        // 3. Update background movement
-        float scrollSpeed = 2.0f; // Movement speed
-        backgroundY -= scrollSpeed;
+        backgroundY -= 2.0f;
+        int height = 600;
 
-        int height = 600; // Screen height
-
-        // 4. Infinite looping logic
-        // When the image goes off the bottom, reset coordinates and increment the counter
         if (backgroundY <= -height) {
             backgroundY += height;
             currentBgPart++;
         }
 
-        // 5. Calculate indices using Modulo (%) to ensure seamless looping (0->1->2->3->0)
-        // This prevents the "image disappearance" or "flickering" error
         int currentImgIndex = startTextureIndex + (currentBgPart % imagesPerLevel);
         int nextImgIndex = startTextureIndex + ((currentBgPart + 1) % imagesPerLevel);
 
-        // Safety check (Null Safety)
         if (currentImgIndex >= textures.length || nextImgIndex >= textures.length) return;
         if (texture[currentImgIndex] == null || texture[nextImgIndex] == null) return;
 
-        // 6. Prepare for drawing
-        // Use int and overlap to prevent visible seams
         int y = Math.round(backgroundY);
-        int overlap = 1; // 1 pixel overlap to hide seams
+        int overlap = 1;
 
         gl.glPushMatrix();
 
-        // --- Draw the current image (bottom) ---
         gl.glBindTexture(GL.GL_TEXTURE_2D, textures[currentImgIndex]);
         gl.glBegin(GL.GL_QUADS);
         gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2f(0, y);
@@ -396,10 +361,7 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
         gl.glTexCoord2f(0.0f, 1.0f); gl.glVertex2f(0, y + height);
         gl.glEnd();
 
-        // --- Draw the next image (top) ---
-        // Draw it slightly overlapping (y + height - overlap) to cover any gap
         int y2 = y + height - overlap;
-
         gl.glBindTexture(GL.GL_TEXTURE_2D, textures[nextImgIndex]);
         gl.glBegin(GL.GL_QUADS);
         gl.glTexCoord2f(0.0f, 0.0f); gl.glVertex2f(0, y2);
@@ -409,80 +371,73 @@ public class GameListener extends AnimListener implements GLEventListener, KeyLi
         gl.glEnd();
 
         gl.glPopMatrix();
-
-        // Keep Blend enabled for the rest of the game elements
         gl.glEnable(GL.GL_BLEND);
     }
 
-    // Called when the GLAutoDrawable is reshaped.
     @Override
     public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {}
 
-    // Called when the display mode or device changes.
     @Override
     public void displayChanged(GLAutoDrawable drawable, boolean modeChanged, boolean deviceChanged) {}
 
-    // Handles key press events, setting the corresponding key in the 'keys' array to true and managing game actions.
     @Override
     public void keyPressed(KeyEvent e) {
         if (isLoading) return;
 
         if (e.getKeyCode() < 256) keys[e.getKeyCode()] = true;
 
-        // --- (Removed Enter key code from here) ---
-        // The game now starts via the Start button in the GUI
-
         if (manager.isGameRunning) {
-            if (e.getKeyCode() == KeyEvent.VK_Z && !manager.player.isSpecialAttackActive) manager.fireLaser();
-            if (e.getKeyCode() == KeyEvent.VK_X) manager.activateShield();
-            if (e.getKeyCode() == KeyEvent.VK_SPACE) manager.player.activateSpecialAttack();
+            // --- Player 1 Controls (Blue) ---
+            if (e.getKeyCode() == KeyEvent.VK_Z) manager.player1.activateLaserBeam();
+
+            if (e.getKeyCode() == KeyEvent.VK_X) {
+                manager.player1.activateShieldManual();
+                if (manager.isMultiplayer && manager.player2 != null) {
+                    manager.player2.activateShieldManual();
+                }
+            }
+
+            if (e.getKeyCode() == KeyEvent.VK_SPACE) manager.player1.activateSpecialAttack();
+
+            // --- Player 2 Controls (Red) - Only if Multiplayer ---
+            if (manager.isMultiplayer && manager.player2 != null) {
+                // Ability Keys for P2: Q=Laser, E=Shield, F=Super
+                if (e.getKeyCode() == KeyEvent.VK_Q) manager.player2.activateLaserBeam();
+                if (e.getKeyCode() == KeyEvent.VK_E) manager.player2.activateShieldManual();
+                if (e.getKeyCode() == KeyEvent.VK_F) manager.player2.activateSpecialAttack();
+            }
+
             if (e.getKeyCode() == KeyEvent.VK_ESCAPE) manager.game.togglePause();
         }
     }
 
-    // Handles key release events, setting the corresponding key in the 'keys' array to false.
     @Override
     public void keyReleased(KeyEvent e) {
         if (isLoading) return;
         if (e.getKeyCode() < 256) keys[e.getKeyCode()] = false;
     }
 
-    // Handles key typed events (currently unused).
     @Override
     public void keyTyped(KeyEvent e) {}
 
-    // Resets all keys in the 'keys' array to false.
     public void resetKeys() {
         Arrays.fill(keys, false);
     }
 
-    // Handles mouse click events (currently prints to console in mousePressed).
     @Override
-    public void mouseClicked(MouseEvent e) {
+    public void mouseClicked(MouseEvent e) {}
 
-    }
-
-    // Handles mouse button pressed events (currently prints cursor coordinates).
     @Override
     public void mousePressed(MouseEvent e) {
         System.out.println(e.getX() + " " + e.getY());
     }
 
-    // Handles mouse button released events.
     @Override
-    public void mouseReleased(MouseEvent e) {
+    public void mouseReleased(MouseEvent e) {}
 
-    }
-
-    // Handles mouse enters component events.
     @Override
-    public void mouseEntered(MouseEvent e) {
+    public void mouseEntered(MouseEvent e) {}
 
-    }
-
-    // Handles mouse exits component events.
     @Override
-    public void mouseExited(MouseEvent e) {
-
-    }
+    public void mouseExited(MouseEvent e) {}
 }

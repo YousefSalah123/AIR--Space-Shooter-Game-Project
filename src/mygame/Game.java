@@ -7,14 +7,10 @@ import mygame.GUI.PauseButtonPanel;
 import mygame.engine.GameListener;
 import mygame.engine.GameManager;
 import mygame.engine.HighScoreManagment;
-
 import javax.media.opengl.GLCanvas;
 import javax.swing.*;
 import java.awt.*;
 
-
-// Main class for the game application. Extends JFrame and manages the game loop,
-// UI layering, state transitions (main menu, game play, game over), and pause functionality.
 public class Game extends JFrame {
     private GLCanvas glCanvas;
     private GameListener listener;
@@ -24,25 +20,18 @@ public class Game extends JFrame {
     private JLayeredPane layeredPane;
     private PauseButtonPanel pauseButtonPanel;
 
-    private static String playerName = "UNKNOWN";
+    private static String playerName = "PLAYER 1";
+    private static String player2Name = "PLAYER 2";
 
-    // Returns the current player's name.
-    public static String getPlayerName() {
-        return playerName;
-    }
+    public static String getPlayerName() { return playerName; }
+    public static void setPlayerName(String name) { Game.playerName = name; }
+    public static String getPlayer2Name() { return player2Name; }
+    public static void setPlayer2Name(String name) { Game.player2Name = name; }
 
-    // Sets the player's name.
-    public static void setPlayerName(String name) {
-        Game.playerName = name;
-    }
-
-    // Main entry point for the application.
     public static void main(String[] args) {
         SwingUtilities.invokeLater(Game::new);
     }
 
-    // Constructor: Sets up the main JFrame, initializes game components (Manager, Listener),
-    // and configures the layered pane for UI elements over the OpenGL canvas.
     public Game() {
         super("Galactic Air Mission");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -53,158 +42,121 @@ public class Game extends JFrame {
         manager = new GameManager(this);
         listener = new GameListener(manager);
 
-        // 1. GLCanvas setup
         glCanvas = new GLCanvas();
         glCanvas.addGLEventListener(listener);
         glCanvas.addKeyListener(listener);
         glCanvas.setFocusable(true);
 
-        // 2. PauseButtonPanel setup
         pauseButtonPanel = new PauseButtonPanel(this);
-        // Hide the button immediately upon creation
         pauseButtonPanel.setVisible(false);
+        pauseButtonPanel.setBounds(690, 525, 85, 35);
 
-        // Set the appropriate dimensions and location for the "ESC" button (top right)
-        // (x=700, y=10, width=85, height=35)
-        pauseButtonPanel.setBounds(700, 10, 85, 35);
-
-        // 3. JLayeredPane setup
         layeredPane = new JLayeredPane();
         layeredPane.setPreferredSize(new Dimension(800, 600));
 
-        // 4. Add components to JLayeredPane
-        // a. Add GLCanvas (Bottom layer)
         glCanvas.setBounds(0, 0, 800, 600);
         layeredPane.add(glCanvas, JLayeredPane.DEFAULT_LAYER);
-
-        // b. Add Pause Button (Top layer)
         layeredPane.add(pauseButtonPanel, JLayeredPane.PALETTE_LAYER);
 
-
-        // 5. Add layeredPane to JFrame
         this.add(layeredPane, BorderLayout.CENTER);
-
 
         animator = new FPSAnimator(glCanvas, 60);
 
         showMainMenu();
     }
 
-    // Displays the main menu screen and stops the game animator.
     public void showMainMenu() {
-        this.setVisible(false);
+        this.setVisible(true);
 
+        // Optimization: Stop GL animation in the menu to conserve resources;
+        // the menu handles its own Swing-based animation.
         if (animator.isAnimating()) animator.stop();
 
-        // Hide the button
-        if (pauseButtonPanel != null) {
-            pauseButtonPanel.setVisible(false);
-        }
+        if (pauseButtonPanel != null) pauseButtonPanel.setVisible(false);
+
+        if (mainMenu != null) layeredPane.remove(mainMenu);
 
         mainMenu = new ArcadeGameUI(this);
+        mainMenu.setBounds(0, 0, 800, 600);
 
-        mainMenu.setStartGameAction(e -> startActualGame());
+        // Add to the Modal Layer (Topmost)
+        layeredPane.add(mainMenu, JLayeredPane.MODAL_LAYER);
 
-        mainMenu.setVisible(true);
+        layeredPane.revalidate();
+        layeredPane.repaint();
     }
 
-    // Starts the actual game loop, resets the game state, shows the main frame,
-    // and starts the FPS animator.
-    public void startActualGame() {
-        if (mainMenu != null) mainMenu.setVisible(false);
+    public void startActualGame(boolean isMultiplayer) {
+        if (mainMenu != null) {
+            mainMenu.setVisible(false);
+            layeredPane.remove(mainMenu);
+            layeredPane.repaint();
+        }
+
+        // Game Initialization
+        manager.isMenuState = false; // Safety check
+        manager.isMultiplayer = isMultiplayer;
+
+        if (isMultiplayer && manager.player2 == null) {
+            manager.player2 = new mygame.objects.Player(500, 50, true);
+        }
 
         manager.resetGame();
 
         this.setVisible(true);
-
         SwingUtilities.invokeLater(() -> {
-            if (pauseButtonPanel != null) {
-                pauseButtonPanel.setVisible(true);
-            }
+            if (pauseButtonPanel != null) pauseButtonPanel.setVisible(true);
         });
 
         glCanvas.requestFocusInWindow();
 
+        // Start the main game loop
         if (!animator.isAnimating()) animator.start();
     }
 
-    /**
-     * Called when the round ends (Game Over or Victory).
-     * Handles stopping the game, displaying the EndLevelFrame, and managing high scores.
-     */
+    public void startActualGame() {
+        startActualGame(manager.isMultiplayer);
+    }
+
     public void handleGameOver(boolean victory, int score) {
-
         if (animator.isAnimating()) animator.stop();
-
         this.setVisible(false);
-
-        // Hide the button
-        if (pauseButtonPanel != null) {
-            pauseButtonPanel.setVisible(false);
-        }
+        if (pauseButtonPanel != null) pauseButtonPanel.setVisible(false);
 
         final EndLevelFrame[] holder = new EndLevelFrame[1];
-
         holder[0] = new EndLevelFrame(
-                victory,
-                score,
-                e -> {  // Retry
-                    holder[0].dispose();
-                    startActualGame();
-                },
-                e -> {  // Back to Menu
-                    holder[0].dispose();
-                    showMainMenu();
-                    HighScoreManagment.addScore(getPlayerName(), manager.score);
+                victory, score,
+                e -> { holder[0].dispose(); startActualGame(); },
+                e -> {
+                    holder[0].dispose(); showMainMenu();
+                    String saveName = getPlayerName();
+                    if (manager.isMultiplayer) saveName += " & " + getPlayer2Name();
+                    HighScoreManagment.addScore(saveName, manager.score, manager.isMultiplayer);
                 }
         );
-
         holder[0].setVisible(true);
     }
 
-    // Toggles the pause state, stopping the animator and displaying the PauseMenuFrame.
     public void togglePause() {
         if (animator.isAnimating()) animator.stop();
-
         final mygame.GUI.PauseMenuFrame[] menuHolder = new mygame.GUI.PauseMenuFrame[1];
-
         menuHolder[0] = new mygame.GUI.PauseMenuFrame(
-                // 1. Resume
                 e -> {
-                    menuHolder[0].dispose();
-                    listener.resetKeys();
+                    menuHolder[0].dispose(); listener.resetKeys();
                     if (!animator.isAnimating()) animator.start();
                     glCanvas.requestFocusInWindow();
                 },
-                // 2. Restart
+                e -> { menuHolder[0].dispose(); listener.resetKeys(); startActualGame(); },
                 e -> {
-                    menuHolder[0].dispose();
-                    listener.resetKeys();
-
-                    startActualGame();
-                },
-                // 3. Back to Menu
-                e -> {
-                    menuHolder[0].dispose();
-                    listener.resetKeys();
-
-                    // If sound is muted, unmute it before returning to the main menu
-                    if (mygame.GUI.PauseMenuFrame.isMuted) {
-                        toggleSound();
-                        mygame.GUI.PauseMenuFrame.isMuted = false;
-                    }
-
-                    this.setVisible(false);
+                    menuHolder[0].dispose(); listener.resetKeys();
+                    if (mygame.GUI.PauseMenuFrame.isMuted) { toggleSound(); mygame.GUI.PauseMenuFrame.isMuted = false; }
                     showMainMenu();
                 },
-                // 4. Toggle Sound
                 e -> toggleSound()
         );
-
         menuHolder[0].setVisible(true);
     }
 
-    // Function to toggle the sound state (ON/OFF) via the SoundManager.
     public void toggleSound() {
         if (manager != null && manager.soundManager != null) {
             manager.soundManager.toggleMute();
